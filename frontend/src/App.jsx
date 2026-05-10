@@ -12,7 +12,7 @@ import { ProductProvider } from "./context/ProductContext.jsx";
 import { CategoryProvider } from "./context/CategoryContext.jsx";
 import { lazy } from "react";
 
-const ScrollToTop = lazy(() => import("./components/ScrollToTop.jsx"));
+const ScrollToTop = lazy(() => import("./components/layout/ScrollToTop.jsx"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"))
 const ForgotPassword = lazy(() => import("./pages/ForgotPassword"))
 const SubmitOtp = lazy(() => import("./pages/SubmitOtp"))
@@ -30,8 +30,8 @@ const ProductList = lazy(() => import("./pages/ProductList.jsx"));
 const AddressCard = lazy(() => import("./components/ui/AddressCard.jsx"));
 const ProfileLayout = lazy(() => import("./components/ProfileLayout.jsx"));
 const SearchPage = lazy(() => import("./pages/SearchPage.jsx"));
-const AppLayout = lazy(() => import("./components/AppLayout.jsx"));
-const AdminLayout = lazy(() => import("./components/AdminLayout.jsx"));
+const AppLayout = lazy(() => import("./components/layout/AppLayout.jsx"));
+const AdminLayout = lazy(() => import("./components/layout/AdminLayout.jsx"));
 const Cart = lazy(() => import("./pages/Cart.jsx"));
 const Coupons = lazy(() => import("./pages/Coupons.jsx"));
 const CheckOut = lazy(() => import("./pages/CheckOut.jsx"));
