@@ -1,15 +1,21 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './styles/global.css'
-import App from './App.jsx'
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { Provider } from "react-redux";
+import { BrowserRouter } from "react-router-dom";
 
-import { store } from './redux/store.js'
+import App from "./App";
+import { store } from "./store";
+import "./styles.css";
 
-createRoot(document.getElementById('root')).render(
-  // <StrictMode>
+const container = document.getElementById("root");
+if (!container) throw new Error("Root element #root not found");
+
+createRoot(container).render(
+  <StrictMode>
     <Provider store={store}>
-    <App />
+      <BrowserRouter>
+        <App />
+      </BrowserRouter>
     </Provider>
-  // {/* </StrictMode>, */}
-)
+  </StrictMode>,
+);
