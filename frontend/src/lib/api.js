@@ -78,27 +78,59 @@ export async function apiRequest(path, options = {}) {
 
 export const authApi = {
   register(data) {
-    return apiRequest("/api/auth/register", {
+    return apiRequest("/auth/register", {
       method: "POST",
       auth: false,
       body: data,
     });
   },
   login(data) {
-    return apiRequest("/api/auth/login", {
+    return apiRequest("/auth/login", {
       method: "POST",
       auth: false,
       body: data,
     });
   },
   logout(refreshToken) {
-    return apiRequest("/api/auth/logout", {
+    return apiRequest("/auth/logout", {
       method: "POST",
       auth: false,
       body: { refreshToken },
     });
   },
   me() {
-    return apiRequest("/api/auth/me");
+    return apiRequest("/auth/me");
+  },
+};
+
+export const roomsApi = {
+  list() {
+    return apiRequest("/rooms");
+  },
+  create(data = {}) {
+    return apiRequest("/rooms", {
+      method: "POST",
+      body: data,
+    });
+  },
+  get(roomId) {
+    return apiRequest(`/rooms/${encodeURIComponent(roomId)}`);
+  },
+  join(roomId, data = {}) {
+    return apiRequest(`/rooms/${encodeURIComponent(roomId)}/join`, {
+      method: "POST",
+      body: data,
+    });
+  },
+  joinByCode(roomCode, data = {}) {
+    return apiRequest("/rooms/join", {
+      method: "POST",
+      body: { roomCode, ...data },
+    });
+  },
+  leave(roomId) {
+    return apiRequest(`/rooms/${encodeURIComponent(roomId)}/leave`, {
+      method: "POST",
+    });
   },
 };

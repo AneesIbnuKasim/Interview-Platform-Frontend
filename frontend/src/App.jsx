@@ -44,7 +44,14 @@ export default function App() {
           </ProtectedRoute>
         }
       />
-      <Route path="/room/:roomId" element={<Room />} />
+      <Route
+        path="/room/:roomId"
+        element={
+          <ProtectedRoute>
+            <Room />
+          </ProtectedRoute>
+        }
+      />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
