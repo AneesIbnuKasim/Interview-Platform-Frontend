@@ -1,11 +1,11 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState } from "react";
 import { Code2, Eye, EyeOff, Github, Mail } from "lucide-react";
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
-import { useAppDispatch } from "@/store/hooks";
-import { loginSuccess } from "@/features/auth/authSlice";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { loginUser } from "@/features/auth/authSlice";
 
 export default function LoginPage() {
   return (
@@ -19,7 +19,10 @@ export default function LoginPage() {
 export function BrandPane() {
   return (
     <div className="relative hidden overflow-hidden md:block">
-      <div className="absolute inset-0" style={{ backgroundImage: "var(--gradient-hero)" }} />
+      <div
+        className="absolute inset-0"
+        style={{ backgroundImage: "var(--gradient-hero)" }}
+      />
       <div className="relative flex h-full flex-col justify-between p-10">
         <Link to="/" className="flex items-center gap-2 font-semibold">
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-accent">
@@ -32,10 +35,13 @@ export function BrandPane() {
             The calm, focused way to interview engineers.
           </h2>
           <p className="mt-3 max-w-md text-muted-foreground">
-            Live editor, HD video, and chat — all in one workspace built for evaluating real signal.
+            Live editor, HD video, and chat — all in one workspace built for
+            evaluating real signal.
           </p>
         </div>
-        <p className="text-xs text-muted-foreground">© {new Date().getFullYear()} Pairloop, Inc.</p>
+        <p className="text-xs text-muted-foreground">
+          © {new Date().getFullYear()} Pairloop, Inc.
+        </p>
       </div>
     </div>
   );
@@ -43,59 +49,95 @@ export function BrandPane() {
 
 function FormPane() {
   const [show, setShow] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const dispatch = useAppDispatch();
+  const location = useLocation();
   const navigate = useNavigate();
+  const { error, status } = useAppSelector((state) => state.auth);
+  const loading = status === "loading";
 
-  function submit(e) {
+  async function submit(e) {
     e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      dispatch(loginSuccess({ id: "u1", name: email.split("@")[0] || "You", email }));
-      navigate("/dashboard");
-    }, 600);
+
+    try {
+      await dispatch(loginUser({ email, password })).unwrap();
+      navigate(location.state?.from?.pathname || "/dashboard", {
+        replace: true,
+      });
+    } catch {
+      // Error is rendered from Redux state.
+    }
   }
 
   return (
     <div className="flex items-center justify-center p-6 md:p-10">
       <motion.div
-        initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
         className="w-full max-w-sm"
       >
         <h1 className="text-2xl font-semibold">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Log in to continue to your dashboard.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Log in to continue to your dashboard.
+        </p>
 
         <div className="mt-6 grid grid-cols-2 gap-2">
-          <Button variant="outline" size="md"><Github size={16}/> GitHub</Button>
-          <Button variant="outline" size="md"><Mail size={16}/> Google</Button>
+          <Button type="button" variant="outline" size="md">
+            <Github size={16} /> GitHub
+          </Button>
+          <Button type="button" variant="outline" size="md">
+            <Mail size={16} /> Google
+          </Button>
         </div>
         <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
+          <span className="h-px flex-1 bg-border" /> or{" "}
+          <span className="h-px flex-1 bg-border" />
         </div>
 
         <form onSubmit={submit} className="space-y-3">
           <div>
             <label className="text-xs text-muted-foreground">Email</label>
-            <Input type="email" required value={email} onChange={e => setEmail(e.target.value)} placeholder="you@company.com" className="mt-1" />
+            <Input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@company.com"
+              className="mt-1"
+            />
           </div>
           <div>
             <label className="text-xs text-muted-foreground">Password</label>
             <div className="relative mt-1">
-              <Input type={show ? "text" : "password"} required value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" />
-              <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
-                {show ? <EyeOff size={16}/> : <Eye size={16}/>}
+              <Input
+                type={show ? "text" : "password"}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+              <button
+                type="button"
+                onClick={() => setShow((s) => !s)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                {show ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
           </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Signing in…" : "Sign in"}
           </Button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted-foreground">
-          New here? <Link to="/register" className="text-foreground hover:underline">Create an account</Link>
+          New here?{" "}
+          <Link to="/register" className="text-foreground hover:underline">
+            Create an account
+          </Link>
         </p>
       </motion.div>
     </div>
