@@ -1,4 +1,4 @@
-import { roomsApi } from "@/lib/api";
+import { roomsApi, screenshotsApi } from "@/lib/api";
 
 export const roomService = {
   listRooms() {
@@ -18,5 +18,11 @@ export const roomService = {
   },
   leaveRoom(roomId) {
     return roomsApi.leave(roomId);
+  },
+  listScreenshots(roomId) {
+    return screenshotsApi.list(roomId);
+  },
+  uploadScreenshot(roomId, file, payload) {
+    return screenshotsApi.upload(roomId, file, payload);
   },
 };

@@ -105,17 +105,8 @@ export function CodeEditor({ roomId }) {
     const handleConnectError = () => {
       dispatch(setEditorError("Realtime editor connection failed"));
     };
-    const joinRealtimeRoom = () => {
-      socket.emit(socketEvents.ROOM_JOIN, { roomId }, (response) => {
-        if (response?.success === false) {
-          dispatch(
-            setEditorError(response.message || "Unable to join realtime room"),
-          );
-          return;
-        }
-
-        socket.emit(socketEvents.EDITOR_REQUEST_STATE, { roomId });
-      });
+    const requestEditorState = () => {
+      socket.emit(socketEvents.EDITOR_REQUEST_STATE, { roomId });
     };
 
     socket.on(socketEvents.EDITOR_STATE, handleState);
@@ -124,10 +115,10 @@ export function CodeEditor({ roomId }) {
     socket.on(socketEvents.EDITOR_SAVED, handleState);
     socket.on(socketEvents.EDITOR_SYNC_ERROR, handleError);
     socket.on("connect_error", handleConnectError);
-    socket.on("connect", joinRealtimeRoom);
+    socket.on("connect", requestEditorState);
 
     if (socket.connected) {
-      joinRealtimeRoom();
+      requestEditorState();
     }
 
     return () => {
@@ -141,8 +132,7 @@ export function CodeEditor({ roomId }) {
       socket.off(socketEvents.EDITOR_SAVED, handleState);
       socket.off(socketEvents.EDITOR_SYNC_ERROR, handleError);
       socket.off("connect_error", handleConnectError);
-      socket.off("connect", joinRealtimeRoom);
-      socket.emit(socketEvents.ROOM_LEAVE, { roomId, persist: false });
+      socket.off("connect", requestEditorState);
     };
   }, [applyRemoteState, dispatch, roomId]);
 

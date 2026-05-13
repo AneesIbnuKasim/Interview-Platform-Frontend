@@ -10,6 +10,8 @@ const SOCKET_URL =
 export const socketEvents = {
   ROOM_JOIN: "room:join",
   ROOM_LEAVE: "room:leave",
+  ROOM_STATE: "room:state",
+  PARTICIPANTS_STATE: "participants:state",
 
   EDITOR_REQUEST_STATE: "editor:request-state",
   EDITOR_STATE: "editor:state",
@@ -28,6 +30,14 @@ export const socketEvents = {
   CHAT_TYPING: "chat:typing",
   CHAT_READ: "chat:read",
   CHAT_ERROR: "chat:error",
+
+  PARTICIPANT_MEDIA_CHANGED: "participant:media-changed",
+  MEDIA_MIC_TOGGLE: "media:mic-toggle",
+  MEDIA_CAMERA_TOGGLE: "media:camera-toggle",
+  MEDIA_SPEAKING: "media:speaking",
+  MEDIA_SCREEN_SHARE_START: "media:screen-share-start",
+  MEDIA_SCREEN_SHARE_STOP: "media:screen-share-stop",
+  MEDIA_SCREEN_SHARE_CHANGED: "media:screen-share-changed",
 
   NOTIFICATION_NEW: "notification:new",
 };

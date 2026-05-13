@@ -54,6 +54,16 @@ const slice = createSlice({
       const p = state.list.find((p) => p.id === action.payload);
       if (p) p.cameraOn = !p.cameraOn;
     },
+    updateParticipantMedia(state, action) {
+      const participant = action.payload;
+      const p = state.list.find((item) => item.id === participant.userId);
+      if (!p) return;
+
+      p.muted = participant.media?.micOn === false;
+      p.cameraOn = participant.media?.cameraOn !== false;
+      p.speaking = Boolean(participant.media?.speaking);
+      p.screenSharing = Boolean(participant.media?.screenSharing);
+    },
   },
 });
 
@@ -63,5 +73,6 @@ export const {
   removeParticipant,
   toggleMute,
   toggleCamera,
+  updateParticipantMedia,
 } = slice.actions;
 export default slice.reducer;

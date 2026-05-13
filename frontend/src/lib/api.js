@@ -50,15 +50,16 @@ async function refreshSession() {
 export async function apiRequest(path, options = {}) {
   const { auth = true, retry = true, headers, body, ...fetchOptions } = options;
   const token = auth ? getAccessToken() : null;
+  const isFormData = body instanceof FormData;
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...fetchOptions,
     headers: {
-      "Content-Type": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    body: body !== undefined && !isFormData ? JSON.stringify(body) : body,
   });
   const payload = await parseResponse(response);
 
@@ -131,6 +132,25 @@ export const roomsApi = {
   leave(roomId) {
     return apiRequest(`/rooms/${encodeURIComponent(roomId)}/leave`, {
       method: "POST",
+    });
+  },
+};
+
+export const screenshotsApi = {
+  list(roomId) {
+    return apiRequest(`/rooms/${encodeURIComponent(roomId)}/screenshots`);
+  },
+  upload(roomId, file, data = {}) {
+    const formData = new FormData();
+    formData.append("screenshot", file);
+
+    if (data.title) {
+      formData.append("title", data.title);
+    }
+
+    return apiRequest(`/rooms/${encodeURIComponent(roomId)}/screenshots`, {
+      method: "POST",
+      body: formData,
     });
   },
 };

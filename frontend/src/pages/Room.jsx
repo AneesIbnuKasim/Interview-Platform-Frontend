@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Mic,
@@ -18,7 +18,10 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { Button } from "@/components/common/Button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { joinRoom, leaveRoomSession } from "@/features/room/roomSlice";
-import { setParticipants } from "@/features/participants/participantsSlice";
+import {
+  setParticipants,
+  updateParticipantMedia,
+} from "@/features/participants/participantsSlice";
 import { incUnread, markRead, receiveMessage } from "@/features/chat/chatSlice";
 import { setChatOpen, setParticipantsOpen } from "@/features/ui/uiSlice";
 import { useElapsed } from "@/hooks/useElapsed";
@@ -30,8 +33,9 @@ function mapParticipants(participants) {
     id: participant.id,
     name: participant.name,
     role: participant.role,
-    muted: false,
-    cameraOn: participant.status !== "left",
+    muted: participant.media?.micOn !== true,
+    cameraOn: participant.media?.cameraOn === true,
+    screenSharing: Boolean(participant.media?.screenSharing),
     quality: participant.status === "active" ? "good" : "ok",
     color: ["#7c3aed", "#06b6d4", "#ec4899", "#22c55e"][index % 4],
   }));
@@ -49,9 +53,20 @@ export default function RoomPage() {
   const me = useAppSelector((s) => s.auth.user);
   const elapsed = useElapsed(room.startedAt);
 
-  const [mic, setMic] = useState(true);
-  const [cam, setCam] = useState(true);
+  const [mic, setMic] = useState(false);
+  const [cam, setCam] = useState(false);
   const [screen, setScreen] = useState(false);
+  const [localStream, setLocalStream] = useState(null);
+  const [screenStream, setScreenStream] = useState(null);
+  const localStreamRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const micRef = useRef(mic);
+  const camRef = useRef(cam);
+
+  useEffect(() => {
+    micRef.current = mic;
+    camRef.current = cam;
+  }, [cam, mic]);
 
   useEffect(() => {
     if (roomId) {
@@ -70,6 +85,14 @@ export default function RoomPage() {
 
     if (!socket || !roomId) return undefined;
 
+    const joinRealtimeRoom = () => {
+      socket.emit(socketEvents.ROOM_JOIN, {
+        roomId,
+        micOn: micRef.current,
+        cameraOn: camRef.current,
+      });
+    };
+
     const handleMessage = (payload) => {
       if (!ui.chatOpen) return;
       dispatch(receiveMessage(payload.message));
@@ -81,13 +104,57 @@ export default function RoomPage() {
         dispatch(incUnread());
       }
     };
+    const handleMedia = (payload) => {
+      if (payload?.participant) {
+        dispatch(updateParticipantMedia(payload.participant));
 
+        if (payload.participant.userId === me?.id) {
+          setMic(payload.participant.media?.micOn !== false);
+          setCam(payload.participant.media?.cameraOn !== false);
+          setScreen(Boolean(payload.participant.media?.screenSharing));
+        }
+      }
+    };
+    const handleParticipants = (payload) => {
+      if (!payload?.participants) return;
+
+      dispatch(
+        setParticipants(
+          payload.participants.map((participant, index) => ({
+            id: participant.userId,
+            name: participant.name,
+            role: participant.role,
+            muted: participant.media?.micOn === false,
+            cameraOn: participant.media?.cameraOn !== false,
+            speaking: Boolean(participant.media?.speaking),
+            screenSharing: Boolean(participant.media?.screenSharing),
+            quality: "good",
+            color: ["#7c3aed", "#06b6d4", "#ec4899", "#22c55e"][index % 4],
+          })),
+        ),
+      );
+    };
+
+    socket.on("connect", joinRealtimeRoom);
     socket.on(socketEvents.CHAT_MESSAGE_CREATED, handleMessage);
     socket.on(socketEvents.NOTIFICATION_NEW, handleNotification);
+    socket.on(socketEvents.ROOM_STATE, handleParticipants);
+    socket.on(socketEvents.PARTICIPANTS_STATE, handleParticipants);
+    socket.on(socketEvents.PARTICIPANT_MEDIA_CHANGED, handleMedia);
+    socket.on(socketEvents.MEDIA_SCREEN_SHARE_CHANGED, handleMedia);
+
+    if (socket.connected) {
+      joinRealtimeRoom();
+    }
 
     return () => {
+      socket.off("connect", joinRealtimeRoom);
       socket.off(socketEvents.CHAT_MESSAGE_CREATED, handleMessage);
       socket.off(socketEvents.NOTIFICATION_NEW, handleNotification);
+      socket.off(socketEvents.ROOM_STATE, handleParticipants);
+      socket.off(socketEvents.PARTICIPANTS_STATE, handleParticipants);
+      socket.off(socketEvents.PARTICIPANT_MEDIA_CHANGED, handleMedia);
+      socket.off(socketEvents.MEDIA_SCREEN_SHARE_CHANGED, handleMedia);
     };
   }, [dispatch, me?.id, roomId, ui.chatOpen]);
 
@@ -99,12 +166,184 @@ export default function RoomPage() {
     socket?.emit(socketEvents.CHAT_READ, { roomId });
   }, [dispatch, roomId, ui.chatOpen]);
 
+  useEffect(() => {
+    return () => {
+      localStreamRef.current?.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
+
   async function leave() {
     try {
       await dispatch(leaveRoomSession(roomId)).unwrap();
       navigate("/dashboard");
     } catch {
       // Error is rendered from Redux state.
+    }
+  }
+
+  async function ensureLocalStream(constraints) {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Media devices are not available in this browser");
+    }
+
+    const existingStream = localStreamRef.current;
+    const needsAudio =
+      constraints.audio &&
+      !existingStream
+        ?.getAudioTracks()
+        .some((track) => track.readyState === "live");
+    const needsVideo =
+      constraints.video &&
+      !existingStream
+        ?.getVideoTracks()
+        .some((track) => track.readyState === "live");
+
+    if (!needsAudio && !needsVideo) {
+      return existingStream;
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: Boolean(needsAudio),
+      video: Boolean(needsVideo),
+    });
+
+    if (!localStreamRef.current) {
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      return stream;
+    }
+
+    stream.getTracks().forEach((track) => {
+      localStreamRef.current.addTrack(track);
+    });
+    setLocalStream(localStreamRef.current);
+
+    return localStreamRef.current;
+  }
+
+  function stopLocalTracks(kind) {
+    const stream = localStreamRef.current;
+    if (!stream) return;
+
+    const tracks =
+      kind === "audio" ? stream.getAudioTracks() : stream.getVideoTracks();
+
+    tracks.forEach((track) => {
+      track.stop();
+      stream.removeTrack(track);
+    });
+
+    if (!stream.getTracks().length) {
+      localStreamRef.current = null;
+      setLocalStream(null);
+      return;
+    }
+
+    setLocalStream(stream);
+  }
+
+  function emitMedia(eventName, payload, onSuccess) {
+    const socket = connectSocket();
+
+    if (!socket) return;
+
+    socket.emit(eventName, { roomId, ...payload }, (response) => {
+      if (response?.success === false) return;
+
+      if (response?.participant) {
+        dispatch(updateParticipantMedia(response.participant));
+      }
+
+      onSuccess?.(response);
+    });
+  }
+
+  async function toggleMic() {
+    const nextMicState = !mic;
+
+    try {
+      if (nextMicState) {
+        await ensureLocalStream({ audio: true });
+      } else {
+        stopLocalTracks("audio");
+      }
+
+      emitMedia(socketEvents.MEDIA_MIC_TOGGLE, { micOn: nextMicState }, () =>
+        setMic(nextMicState),
+      );
+    } catch {
+      emitMedia(socketEvents.MEDIA_MIC_TOGGLE, { micOn: false }, () =>
+        setMic(false),
+      );
+    }
+  }
+
+  async function toggleCamera() {
+    const nextCameraState = !cam;
+
+    try {
+      if (nextCameraState) {
+        await ensureLocalStream({ video: true });
+      } else {
+        stopLocalTracks("video");
+      }
+
+      emitMedia(
+        socketEvents.MEDIA_CAMERA_TOGGLE,
+        { cameraOn: nextCameraState },
+        () => setCam(nextCameraState),
+      );
+    } catch {
+      emitMedia(socketEvents.MEDIA_CAMERA_TOGGLE, { cameraOn: false }, () =>
+        setCam(false),
+      );
+    }
+  }
+
+  async function toggleScreenShare() {
+    const nextScreenState = !screen;
+
+    if (nextScreenState && !navigator.mediaDevices?.getDisplayMedia) {
+      return;
+    }
+
+    if (!nextScreenState) {
+      screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+      screenStreamRef.current = null;
+      setScreenStream(null);
+      emitMedia(socketEvents.MEDIA_SCREEN_SHARE_STOP, {}, () =>
+        setScreen(false),
+      );
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
+      screenStreamRef.current = stream;
+      setScreenStream(stream);
+
+      stream.getVideoTracks().forEach((track) => {
+        track.addEventListener("ended", () => {
+          screenStreamRef.current = null;
+          setScreenStream(null);
+          emitMedia(socketEvents.MEDIA_SCREEN_SHARE_STOP, {}, () =>
+            setScreen(false),
+          );
+        });
+      });
+
+      emitMedia(socketEvents.MEDIA_SCREEN_SHARE_START, {}, () =>
+        setScreen(true),
+      );
+    } catch {
+      setScreenStream(null);
+      emitMedia(socketEvents.MEDIA_SCREEN_SHARE_STOP, {}, () =>
+        setScreen(false),
+      );
     }
   }
 
@@ -143,7 +382,11 @@ export default function RoomPage() {
                       {participants.length}
                     </span>
                   </div>
-                  <VideoGrid />
+                  <VideoGrid
+                    localUserId={me?.id}
+                    localStream={localStream}
+                    screenStream={screenStream}
+                  />
                 </div>
               )}
               {ui.chatOpen && (
@@ -160,9 +403,9 @@ export default function RoomPage() {
         mic={mic}
         cam={cam}
         screen={screen}
-        onMic={() => setMic((m) => !m)}
-        onCam={() => setCam((c) => !c)}
-        onScreen={() => setScreen((s) => !s)}
+        onMic={toggleMic}
+        onCam={toggleCamera}
+        onScreen={toggleScreenShare}
         onChat={() => dispatch(setChatOpen(!ui.chatOpen))}
         chatUnread={chatUnread}
         onPeople={() => dispatch(setParticipantsOpen(!ui.participantsOpen))}
