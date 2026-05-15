@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useState } from "react";
-import { Code2, Eye, EyeOff, Github, Mail } from "lucide-react";
+import { Code2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
@@ -83,20 +83,7 @@ function FormPane() {
           Log in to continue to your dashboard.
         </p>
 
-        <div className="mt-6 grid grid-cols-2 gap-2">
-          <Button type="button" variant="outline" size="md">
-            <Github size={16} /> GitHub
-          </Button>
-          <Button type="button" variant="outline" size="md">
-            <Mail size={16} /> Google
-          </Button>
-        </div>
-        <div className="my-5 flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="h-px flex-1 bg-border" /> or{" "}
-          <span className="h-px flex-1 bg-border" />
-        </div>
-
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} className="mt-6 space-y-3">
           <div>
             <label className="text-xs text-muted-foreground">Email</label>
             <Input

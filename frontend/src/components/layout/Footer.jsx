@@ -12,9 +12,15 @@ export function Footer() {
           <span>© {new Date().getFullYear()}</span>
         </div>
         <div className="flex gap-6">
-          <a href="#" className="hover:text-foreground">Privacy</a>
-          <a href="#" className="hover:text-foreground">Terms</a>
-          <a href="#" className="hover:text-foreground">Contact</a>
+          <a href="#features" className="hover:text-foreground">
+            Features
+          </a>
+          <a href="#how" className="hover:text-foreground">
+            How it works
+          </a>
+          <a href="mailto:hello@pairloop.dev" className="hover:text-foreground">
+            Contact
+          </a>
         </div>
       </div>
     </footer>
