@@ -104,6 +104,18 @@ export const authApi = {
   },
 };
 
+export const usersApi = {
+  me() {
+    return apiRequest("/users/me");
+  },
+  updateMe(data) {
+    return apiRequest("/users/me", {
+      method: "PATCH",
+      body: data,
+    });
+  },
+};
+
 export const roomsApi = {
   list() {
     return apiRequest("/rooms");

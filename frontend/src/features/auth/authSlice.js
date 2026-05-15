@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { authApi } from "@/lib/api";
+import { userService } from "@/services/userService";
 import {
   clearAuthSession,
   getAccessToken,
@@ -73,6 +74,19 @@ export const logoutUser = createAsyncThunk("auth/logout", async () => {
   }
 });
 
+export const updateCurrentUser = createAsyncThunk(
+  "auth/updateCurrentUser",
+  async (payload, { rejectWithValue }) => {
+    try {
+      const data = await userService.updateProfile(payload);
+      if (data?.user) setAuthSession({ user: data.user });
+      return data?.user;
+    } catch (error) {
+      return rejectWithValue(authError(error));
+    }
+  },
+);
+
 const slice = createSlice({
   name: "auth",
   initialState,
@@ -133,6 +147,20 @@ const slice = createSlice({
         state.status = "idle";
         state.error = null;
         state.initialized = true;
+      })
+      .addCase(updateCurrentUser.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(updateCurrentUser.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.status = "authenticated";
+        state.error = null;
+        state.initialized = true;
+      })
+      .addCase(updateCurrentUser.rejected, (state, action) => {
+        state.status = "authenticated";
+        state.error = action.payload;
       });
   },
 });
