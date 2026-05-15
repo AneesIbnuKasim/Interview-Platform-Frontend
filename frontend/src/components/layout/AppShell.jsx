@@ -9,13 +9,21 @@ import {
   ChevronLeft,
   Bell,
   Search,
+  CheckCheck,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/common/Avatar";
 import { Input } from "@/components/common/Input";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { logoutUser } from "@/features/auth/authSlice";
+import {
+  clearNotifications,
+  fetchNotifications,
+  markAllNotificationsRead,
+  receiveNotification,
+} from "@/features/notifications/notificationsSlice";
 import { cn } from "@/lib/cn";
+import { connectSocket, socketEvents } from "@/lib/socket";
 
 const nav = [
   {
@@ -40,17 +48,43 @@ export function AppShell({ children }) {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [search, setSearch] = useState("");
   const user = useAppSelector((s) => s.auth.user);
-  const rooms = useAppSelector((s) => s.room.rooms);
+  const notifications = useAppSelector((s) => s.notifications.items);
   const dispatch = useAppDispatch();
   const location = useLocation();
   const navigate = useNavigate();
   const dashboardView =
     new URLSearchParams(location.search).get("view") || "overview";
-  const activeRooms = rooms.filter((room) => room.status === "active");
-  const recentRooms = rooms.slice(0, 3);
+  const unreadCount = notifications.filter((notification) => {
+    return !notification.read;
+  }).length;
+  const recentNotifications = useMemo(() => {
+    return notifications.slice(0, 5);
+  }, [notifications]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+
+    dispatch(fetchNotifications());
+
+    const socket = connectSocket();
+    if (!socket) return undefined;
+
+    const handleNotification = (payload) => {
+      if (payload?.notification) {
+        dispatch(receiveNotification(payload.notification));
+      }
+    };
+
+    socket.on(socketEvents.NOTIFICATION_NEW, handleNotification);
+
+    return () => {
+      socket.off(socketEvents.NOTIFICATION_NEW, handleNotification);
+    };
+  }, [dispatch, user]);
 
   async function handleLogout() {
     await dispatch(logoutUser());
+    dispatch(clearNotifications());
     navigate("/");
   }
 
@@ -63,6 +97,18 @@ export function AppShell({ children }) {
         ? `/dashboard?view=interviews&q=${encodeURIComponent(query)}`
         : "/dashboard?view=interviews",
     );
+  }
+
+  function toggleNotifications() {
+    setNotificationsOpen((open) => {
+      const nextOpen = !open;
+
+      if (nextOpen && unreadCount > 0) {
+        dispatch(markAllNotificationsRead());
+      }
+
+      return nextOpen;
+    });
   }
 
   return (
@@ -143,34 +189,51 @@ export function AppShell({ children }) {
           <div className="ml-auto flex items-center gap-2">
             <div className="relative">
               <button
-                onClick={() => setNotificationsOpen((open) => !open)}
+                onClick={toggleNotifications}
                 className="relative grid h-9 w-9 place-items-center rounded-xl border border-border text-muted-foreground hover:text-foreground"
               >
                 <Bell size={16} />
-                {activeRooms.length > 0 && (
-                  <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-1 -top-1 min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-semibold text-primary-foreground">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
                 )}
               </button>
               {notificationsOpen && (
                 <div className="glass absolute right-0 mt-2 w-80 rounded-xl p-2 text-sm">
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                    Notifications
+                  <div className="flex items-center justify-between px-2 py-1.5">
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Notifications
+                    </span>
+                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <CheckCheck size={12} />
+                      Seen
+                    </span>
                   </div>
-                  {recentRooms.length === 0 ? (
+                  {recentNotifications.length === 0 ? (
                     <div className="px-2 py-3 text-xs text-muted-foreground">
-                      No room activity yet.
+                      No notifications yet.
                     </div>
                   ) : (
-                    recentRooms.map((room) => (
+                    recentNotifications.map((notification) => (
                       <Link
-                        key={room.id}
-                        to={`/room/${room.id}`}
+                        key={notification.id}
+                        to={
+                          notification.roomId
+                            ? `/room/${notification.roomId}`
+                            : "/dashboard"
+                        }
                         onClick={() => setNotificationsOpen(false)}
-                        className="block rounded-lg px-2 py-2 hover:bg-secondary/60"
+                        className={cn(
+                          "block rounded-lg px-2 py-2 hover:bg-secondary/60",
+                          !notification.read && "bg-primary/10",
+                        )}
                       >
-                        <div className="truncate font-medium">{room.title}</div>
+                        <div className="truncate font-medium">
+                          {notification.title}
+                        </div>
                         <div className="text-xs text-muted-foreground">
-                          {room.status || "active"} interview room
+                          {notification.body}
                         </div>
                       </Link>
                     ))

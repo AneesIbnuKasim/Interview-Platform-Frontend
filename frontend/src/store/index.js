@@ -4,6 +4,7 @@ import roomReducer from "@/features/room/roomSlice";
 import editorReducer from "@/features/editor/editorSlice";
 import participantsReducer from "@/features/participants/participantsSlice";
 import chatReducer from "@/features/chat/chatSlice";
+import notificationsReducer from "@/features/notifications/notificationsSlice";
 import uiReducer from "@/features/ui/uiSlice";
 
 export const store = configureStore({
@@ -13,6 +14,7 @@ export const store = configureStore({
     editor: editorReducer,
     participants: participantsReducer,
     chat: chatReducer,
+    notifications: notificationsReducer,
     ui: uiReducer,
   },
 });

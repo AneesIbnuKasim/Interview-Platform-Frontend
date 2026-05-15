@@ -29,6 +29,10 @@ import {
   updateParticipantMedia,
 } from "@/features/participants/participantsSlice";
 import { incUnread, markRead, receiveMessage } from "@/features/chat/chatSlice";
+import {
+  markRoomNotificationsRead,
+  receiveNotification,
+} from "@/features/notifications/notificationsSlice";
 import { setChatOpen, setParticipantsOpen } from "@/features/ui/uiSlice";
 import { useElapsed } from "@/hooks/useElapsed";
 import { cn } from "@/lib/cn";
@@ -302,6 +306,7 @@ export default function RoomPage() {
     const handleNotification = (payload) => {
       const notification = payload?.notification;
       if (!notification || notification.data?.authorId === me?.id) return;
+      dispatch(receiveNotification(notification));
       if (!ui.chatOpen) {
         dispatch(incUnread());
       }
@@ -419,6 +424,7 @@ export default function RoomPage() {
     if (!ui.chatOpen || !roomId) return;
 
     dispatch(markRead());
+    dispatch(markRoomNotificationsRead(roomId));
     const socket = connectSocket();
     socket?.emit(socketEvents.CHAT_READ, { roomId });
   }, [dispatch, roomId, ui.chatOpen]);

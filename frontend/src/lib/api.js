@@ -181,3 +181,33 @@ export const editorApi = {
     });
   },
 };
+
+export const notificationsApi = {
+  list(params = {}) {
+    const query = new URLSearchParams();
+
+    if (params.limit) {
+      query.set("limit", String(params.limit));
+    }
+
+    if (params.unreadOnly) {
+      query.set("unreadOnly", "true");
+    }
+
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return apiRequest(`/notifications${suffix}`);
+  },
+  markAllRead() {
+    return apiRequest("/notifications/read", {
+      method: "PATCH",
+    });
+  },
+  markOneRead(notificationId) {
+    return apiRequest(
+      `/notifications/${encodeURIComponent(notificationId)}/read`,
+      {
+        method: "PATCH",
+      },
+    );
+  },
+};
