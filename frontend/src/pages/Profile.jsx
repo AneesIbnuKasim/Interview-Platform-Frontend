@@ -8,18 +8,6 @@ import { Avatar } from "@/components/common/Avatar";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { updateCurrentUser } from "@/features/auth/authSlice";
 
-const timezones = [
-  "UTC",
-  "Asia/Kolkata",
-  "America/New_York",
-  "America/Los_Angeles",
-  "Europe/London",
-  "Europe/Berlin",
-  "Asia/Dubai",
-  "Asia/Singapore",
-  "Australia/Sydney",
-];
-
 const defaultPreferences = {
   emailNotifications: true,
   autoRecordSessions: false,
@@ -30,7 +18,6 @@ function buildForm(user) {
   return {
     name: user?.name ?? "",
     email: user?.email ?? "",
-    timezone: user?.timezone ?? "UTC",
     preferences: {
       ...defaultPreferences,
       ...(user?.preferences ?? {}),
@@ -153,39 +140,6 @@ export default function ProfilePage() {
                   required
                 />
               </div>
-              <div>
-                <label className="text-xs text-muted-foreground" htmlFor="role">
-                  Account role
-                </label>
-                <Input
-                  id="role"
-                  value={user?.role ?? "user"}
-                  className="mt-1 capitalize opacity-70"
-                  disabled
-                />
-              </div>
-              <div>
-                <label
-                  className="text-xs text-muted-foreground"
-                  htmlFor="timezone"
-                >
-                  Timezone
-                </label>
-                <select
-                  id="timezone"
-                  value={form.timezone}
-                  onChange={(event) =>
-                    updateField("timezone", event.target.value)
-                  }
-                  className="mt-1 h-11 w-full rounded-xl border border-border bg-background/40 px-4 text-sm text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {timezones.map((timezone) => (
-                    <option key={timezone} value={timezone}>
-                      {timezone}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
 
             {error && (
@@ -215,7 +169,7 @@ export default function ProfilePage() {
             <div className="mt-4 divide-y divide-border text-sm">
               <PreferenceToggle
                 title="Email notifications"
-                description="Get notified when a candidate joins your room."
+                description="Receive email alerts for unread room activity."
                 checked={form.preferences.emailNotifications}
                 onChange={(value) =>
                   updatePreference("emailNotifications", value)

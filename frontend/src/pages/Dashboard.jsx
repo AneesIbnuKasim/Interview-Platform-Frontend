@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import {
   ArrowRight,
   Calendar,
+  CalendarPlus,
   CheckCircle2,
   Clock,
   Copy,
@@ -11,6 +12,7 @@ import {
   Search,
   Users,
   Video,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -23,10 +25,41 @@ import {
   createRoom,
   fetchRooms,
   joinRoomByCode,
+  updateRoomStatus,
 } from "@/features/room/roomSlice";
 
 const views = ["overview", "interviews", "team"];
 const statusFilters = ["all", "active", "waiting", "ended"];
+const defaultScheduleForm = {
+  title: "",
+  candidateName: "",
+  candidateEmail: "",
+  interviewType: "Coding Interview",
+  scheduledAt: "",
+};
+
+function formatDatetimeLocal(date) {
+  const value = new Date(date);
+  const pad = (item) => String(item).padStart(2, "0");
+
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(value.getMinutes())}`;
+}
+
+function defaultScheduledAt() {
+  const value = new Date(Date.now() + 60 * 60 * 1000);
+  const nextQuarter = Math.ceil(value.getMinutes() / 15) * 15;
+  value.setMinutes(nextQuarter, 0, 0);
+  return formatDatetimeLocal(value);
+}
+
+function compactSchedulePayload(form) {
+  return Object.fromEntries(
+    Object.entries({
+      ...form,
+      scheduledAt: new Date(form.scheduledAt).toISOString(),
+    }).filter(([, value]) => value !== ""),
+  );
+}
 
 function formatRoomDate(room) {
   const value =
@@ -60,7 +93,15 @@ function roomMatchesQuery(room, query) {
     .map((participant) => participant.name)
     .join(" ");
 
-  return [room.title, room.code, room.id, room.candidateName, participantNames]
+  return [
+    room.title,
+    room.code,
+    room.id,
+    room.candidateName,
+    room.candidateEmail,
+    room.interviewType,
+    participantNames,
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase()
@@ -103,6 +144,12 @@ export default function Dashboard() {
   const [join, setJoin] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
   const [copiedRoomId, setCopiedRoomId] = useState(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
+  const [scheduledRoom, setScheduledRoom] = useState(null);
+  const [scheduleForm, setScheduleForm] = useState(() => ({
+    ...defaultScheduleForm,
+    scheduledAt: defaultScheduledAt(),
+  }));
   const busy = status === "loading";
   const currentView = views.includes(searchParams.get("view"))
     ? searchParams.get("view")
@@ -148,6 +195,47 @@ export default function Dashboard() {
     }
   }
 
+  function openSchedule() {
+    setScheduledRoom(null);
+    setScheduleForm((current) => ({
+      ...defaultScheduleForm,
+      ...current,
+      scheduledAt: current.scheduledAt || defaultScheduledAt(),
+    }));
+    setScheduleOpen(true);
+  }
+
+  function closeSchedule() {
+    setScheduleOpen(false);
+    setScheduledRoom(null);
+  }
+
+  function updateScheduleField(field, value) {
+    setScheduleForm((current) => ({
+      ...current,
+      [field]: value,
+    }));
+  }
+
+  async function scheduleInterview(event) {
+    event.preventDefault();
+
+    try {
+      const room = await dispatch(
+        createRoom(compactSchedulePayload(scheduleForm)),
+      ).unwrap();
+
+      setScheduledRoom(room);
+      setScheduleForm({
+        ...defaultScheduleForm,
+        scheduledAt: defaultScheduledAt(),
+      });
+      setView("interviews", { status: "waiting" });
+    } catch {
+      // Error is rendered from Redux state.
+    }
+  }
+
   async function joinRoom() {
     if (!join.trim()) return;
 
@@ -179,6 +267,32 @@ export default function Dashboard() {
     window.setTimeout(() => setCopiedRoomId(null), 1200);
   }
 
+  async function cancelScheduledRoom(room) {
+    try {
+      await dispatch(
+        updateRoomStatus({ roomId: room.id, status: "archived" }),
+      ).unwrap();
+    } catch {
+      // Error is rendered from Redux state.
+    }
+  }
+
+  function emailRoomInvite(room) {
+    const to = room.candidateEmail || "";
+    const subject = encodeURIComponent(`Pairloop interview · ${room.title}`);
+    const body = encodeURIComponent(
+      [
+        `Hi${room.candidateName ? ` ${room.candidateName}` : ""},`,
+        "",
+        `Your interview is scheduled for ${formatRoomDate(room)}.`,
+        `Room code: ${room.code || room.id}`,
+        `Join here: ${window.location.origin}/room/${room.id}`,
+      ].join("\n"),
+    );
+
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+  }
+
   const filteredRooms = useMemo(() => {
     return rooms.filter((room) => {
       const statusMatches =
@@ -189,7 +303,8 @@ export default function Dashboard() {
 
   const teamMembers = useMemo(() => collectTeamMembers(rooms), [rooms]);
   const upcomingRooms = rooms
-    .filter((room) => room.status === "active" || room.scheduledAt)
+    .filter((room) => room.scheduledAt && room.status !== "archived")
+    .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
     .slice(0, 3);
 
   const stats = [
@@ -225,9 +340,14 @@ export default function Dashboard() {
               Pick up where you left off, or start a new interview.
             </p>
           </div>
-          <Button onClick={startRoom} disabled={busy}>
-            <Plus size={16} /> {busy ? "Creating..." : "New room"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={openSchedule} disabled={busy}>
+              <CalendarPlus size={16} /> Schedule
+            </Button>
+            <Button onClick={startRoom} disabled={busy}>
+              <Plus size={16} /> {busy ? "Creating..." : "New room"}
+            </Button>
+          </div>
         </div>
 
         <div className="mb-6 flex flex-wrap gap-2">
@@ -261,6 +381,7 @@ export default function Dashboard() {
             onJoinRoom={joinRoom}
             onShowAll={() => setView("interviews", { status: "all" })}
             onInviteClick={() => setView("team")}
+            onScheduleClick={openSchedule}
           />
         )}
 
@@ -273,6 +394,8 @@ export default function Dashboard() {
             onQueryChange={updateQuery}
             onStatusChange={updateStatusFilter}
             onCopyRoomCode={copyRoomCode}
+            onEmailRoomInvite={emailRoomInvite}
+            onCancelScheduledRoom={cancelScheduledRoom}
           />
         )}
 
@@ -282,6 +405,19 @@ export default function Dashboard() {
             inviteEmail={inviteEmail}
             onInviteEmailChange={setInviteEmail}
             onInvite={inviteTeammate}
+          />
+        )}
+
+        {scheduleOpen && (
+          <ScheduleInterviewModal
+            form={scheduleForm}
+            scheduledRoom={scheduledRoom}
+            busy={busy}
+            onClose={closeSchedule}
+            onSubmit={scheduleInterview}
+            onChange={updateScheduleField}
+            onCopyRoomCode={copyRoomCode}
+            onEmailRoomInvite={emailRoomInvite}
           />
         )}
       </div>
@@ -299,6 +435,7 @@ function OverviewView({
   onJoinRoom,
   onShowAll,
   onInviteClick,
+  onScheduleClick,
 }) {
   return (
     <>
@@ -388,6 +525,15 @@ function OverviewView({
               variant="outline"
               size="sm"
               className="mt-3 w-full"
+              onClick={onScheduleClick}
+            >
+              <CalendarPlus size={14} /> Schedule interview
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="mt-3 w-full"
               onClick={onInviteClick}
             >
               <Users size={14} /> Invite teammates
@@ -407,6 +553,8 @@ function InterviewsView({
   onQueryChange,
   onStatusChange,
   onCopyRoomCode,
+  onEmailRoomInvite,
+  onCancelScheduledRoom,
 }) {
   return (
     <Card>
@@ -448,6 +596,8 @@ function InterviewsView({
         emptyText="No interviews match your filters."
         copiedRoomId={copiedRoomId}
         onCopyRoomCode={onCopyRoomCode}
+        onEmailRoomInvite={onEmailRoomInvite}
+        onCancelScheduledRoom={onCancelScheduledRoom}
       />
     </Card>
   );
@@ -513,7 +663,199 @@ function TeamView({ members, inviteEmail, onInviteEmailChange, onInvite }) {
   );
 }
 
-function RoomList({ rooms, emptyText, copiedRoomId, onCopyRoomCode }) {
+function ScheduleInterviewModal({
+  form,
+  scheduledRoom,
+  busy,
+  onClose,
+  onSubmit,
+  onChange,
+  onCopyRoomCode,
+  onEmailRoomInvite,
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
+      <div className="glass w-full max-w-2xl rounded-2xl">
+        <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
+          <div>
+            <h2 className="text-lg font-semibold">Schedule interview</h2>
+            <p className="text-sm text-muted-foreground">
+              Create a room code now and keep it waiting until interview time.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 place-items-center rounded-xl text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {scheduledRoom ? (
+          <div className="space-y-4 p-5">
+            <div className="rounded-xl border border-success/30 bg-success/10 p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-success">
+                <CheckCircle2 size={16} />
+                Interview scheduled
+              </div>
+              <div className="mt-2 text-sm">
+                {scheduledRoom.title} · {formatRoomDate(scheduledRoom)}
+              </div>
+              <div className="mt-1 font-mono text-sm text-muted-foreground">
+                Room code {scheduledRoom.code || scheduledRoom.id}
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onCopyRoomCode(scheduledRoom)}
+              >
+                <Copy size={15} /> Copy code
+              </Button>
+              {scheduledRoom.candidateEmail && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onEmailRoomInvite(scheduledRoom)}
+                >
+                  <Mail size={15} /> Email candidate
+                </Button>
+              )}
+              <Link to={`/room/${scheduledRoom.id}`}>
+                <Button type="button">
+                  Open room <ArrowRight size={15} />
+                </Button>
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <form className="space-y-4 p-5" onSubmit={onSubmit}>
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label
+                  className="text-xs text-muted-foreground"
+                  htmlFor="title"
+                >
+                  Interview title
+                </label>
+                <Input
+                  id="title"
+                  value={form.title}
+                  onChange={(event) => onChange("title", event.target.value)}
+                  placeholder="Senior frontend screen"
+                  className="mt-1"
+                  maxLength={120}
+                />
+              </div>
+              <div>
+                <label
+                  className="text-xs text-muted-foreground"
+                  htmlFor="interviewType"
+                >
+                  Interview type
+                </label>
+                <select
+                  id="interviewType"
+                  value={form.interviewType}
+                  onChange={(event) =>
+                    onChange("interviewType", event.target.value)
+                  }
+                  className="mt-1 h-11 w-full rounded-xl border border-border bg-background/40 px-4 text-sm text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="Coding Interview">Coding Interview</option>
+                  <option value="System Design">System Design</option>
+                  <option value="Frontend Interview">Frontend Interview</option>
+                  <option value="Backend Interview">Backend Interview</option>
+                  <option value="Final Round">Final Round</option>
+                </select>
+              </div>
+              <div>
+                <label
+                  className="text-xs text-muted-foreground"
+                  htmlFor="candidateName"
+                >
+                  Candidate name
+                </label>
+                <Input
+                  id="candidateName"
+                  value={form.candidateName}
+                  onChange={(event) =>
+                    onChange("candidateName", event.target.value)
+                  }
+                  placeholder="Ada Lovelace"
+                  className="mt-1"
+                  maxLength={100}
+                />
+              </div>
+              <div>
+                <label
+                  className="text-xs text-muted-foreground"
+                  htmlFor="candidateEmail"
+                >
+                  Candidate email
+                </label>
+                <Input
+                  id="candidateEmail"
+                  type="email"
+                  value={form.candidateEmail}
+                  onChange={(event) =>
+                    onChange("candidateEmail", event.target.value)
+                  }
+                  placeholder="candidate@company.com"
+                  className="mt-1"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label
+                  className="text-xs text-muted-foreground"
+                  htmlFor="scheduledAt"
+                >
+                  Date and time
+                </label>
+                <Input
+                  id="scheduledAt"
+                  type="datetime-local"
+                  value={form.scheduledAt}
+                  onChange={(event) =>
+                    onChange("scheduledAt", event.target.value)
+                  }
+                  min={formatDatetimeLocal(new Date())}
+                  className="mt-1"
+                  required
+                />
+              </div>
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onClose}
+                disabled={busy}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" disabled={busy || !form.scheduledAt}>
+                <CalendarPlus size={15} />
+                {busy ? "Scheduling..." : "Schedule interview"}
+              </Button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RoomList({
+  rooms,
+  emptyText,
+  copiedRoomId,
+  onCopyRoomCode,
+  onEmailRoomInvite,
+  onCancelScheduledRoom,
+}) {
   return (
     <ul className="divide-y divide-border">
       {rooms.length === 0 && (
@@ -530,6 +872,13 @@ function RoomList({ rooms, emptyText, copiedRoomId, onCopyRoomCode }) {
             </span>
             <div className="min-w-0">
               <div className="truncate font-medium">{room.title}</div>
+              {(room.candidateName || room.interviewType) && (
+                <div className="truncate text-xs text-muted-foreground">
+                  {[room.candidateName, room.interviewType]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <Calendar size={12} /> {formatRoomDate(room)}
@@ -567,6 +916,27 @@ function RoomList({ rooms, emptyText, copiedRoomId, onCopyRoomCode }) {
                   <Copy size={14} />
                 )}
                 Code
+              </Button>
+            )}
+            {onEmailRoomInvite && room.candidateEmail && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onEmailRoomInvite(room)}
+              >
+                <Mail size={14} />
+                Invite
+              </Button>
+            )}
+            {onCancelScheduledRoom && room.status === "waiting" && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onCancelScheduledRoom(room)}
+              >
+                Cancel
               </Button>
             )}
             <Link to={`/room/${room.id}`}>

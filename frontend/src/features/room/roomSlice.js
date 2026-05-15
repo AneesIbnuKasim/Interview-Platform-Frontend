@@ -150,8 +150,15 @@ const slice = createSlice({
       })
       .addCase(createRoom.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.connection = "connected";
-        applyRoom(state, action.payload);
+        const isScheduledRoom = Boolean(action.meta.arg?.scheduledAt);
+
+        if (isScheduledRoom) {
+          state.connection = "disconnected";
+        } else {
+          state.connection = "connected";
+          applyRoom(state, action.payload);
+        }
+
         state.rooms = [
           action.payload,
           ...state.rooms.filter((room) => room.id !== action.payload.id),
@@ -217,7 +224,21 @@ const slice = createSlice({
       })
       .addCase(updateRoomStatus.fulfilled, (state, action) => {
         state.status = "succeeded";
-        applyRoom(state, action.payload);
+        if (action.payload.status === "archived") {
+          if (state.current?.id === action.payload.id) {
+            applyRoom(state, null);
+          }
+
+          state.rooms = state.rooms.filter((room) => {
+            return room.id !== action.payload.id;
+          });
+          return;
+        }
+
+        if (state.current?.id === action.payload.id) {
+          applyRoom(state, action.payload);
+        }
+
         state.rooms = state.rooms.map((room) => {
           return room.id === action.payload.id ? action.payload : room;
         });

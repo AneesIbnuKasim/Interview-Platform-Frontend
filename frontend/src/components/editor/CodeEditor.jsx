@@ -43,11 +43,15 @@ export function CodeEditor({ roomId }) {
     (s) => s.editor,
   );
   const fullscreen = useAppSelector((s) => s.ui.fullscreenEditor);
+  const editorThemePreference = useAppSelector((s) => {
+    return s.auth.user?.preferences?.defaultEditorTheme || "dark";
+  });
   const dispatch = useAppDispatch();
   const [copied, setCopied] = useState(false);
   const [running, setRunning] = useState(false);
   const [execution, setExecution] = useState(null);
   const [outputHeight, setOutputHeight] = useState(176);
+  const [systemPrefersDark, setSystemPrefersDark] = useState(true);
   const applyingRemote = useRef(false);
   const syncTimer = useRef(null);
   const latestCode = useRef(code);
@@ -57,6 +61,23 @@ export function CodeEditor({ roomId }) {
     latestCode.current = code;
     versionRef.current = version;
   }, [code, version]);
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-color-scheme: dark)");
+    if (!media) return undefined;
+
+    setSystemPrefersDark(media.matches);
+
+    const updatePreference = (event) => {
+      setSystemPrefersDark(event.matches);
+    };
+
+    media.addEventListener("change", updatePreference);
+
+    return () => {
+      media.removeEventListener("change", updatePreference);
+    };
+  }, []);
 
   const applyRemoteState = useCallback(
     (payload) => {
@@ -269,6 +290,15 @@ export function CodeEditor({ roomId }) {
     setTimeout(() => setCopied(false), 1200);
   }
 
+  const monacoTheme =
+    editorThemePreference === "system"
+      ? systemPrefersDark
+        ? "vs-dark"
+        : "light"
+      : editorThemePreference === "light"
+        ? "light"
+        : "vs-dark";
+
   return (
     <div className="glass flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">
       <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
@@ -326,7 +356,7 @@ export function CodeEditor({ roomId }) {
       <div className="min-h-0 flex-1">
         <Editor
           height="100%"
-          theme="vs-dark"
+          theme={monacoTheme}
           language={language}
           value={code}
           onChange={(v) => syncCode(v ?? "")}
