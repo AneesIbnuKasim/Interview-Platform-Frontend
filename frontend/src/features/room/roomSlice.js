@@ -102,6 +102,18 @@ export const leaveRoomSession = createAsyncThunk(
   },
 );
 
+export const updateRoomStatus = createAsyncThunk(
+  "room/updateStatus",
+  async ({ roomId, status }, { rejectWithValue }) => {
+    try {
+      const data = await roomService.updateRoomStatus(roomId, status);
+      return data.room;
+    } catch (error) {
+      return rejectWithValue(errorMessage(error));
+    }
+  },
+);
+
 const slice = createSlice({
   name: "room",
   initialState,
@@ -198,6 +210,21 @@ const slice = createSlice({
       .addCase(leaveRoomSession.fulfilled, (state) => {
         applyRoom(state, null);
         state.connection = "disconnected";
+      })
+      .addCase(updateRoomStatus.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(updateRoomStatus.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        applyRoom(state, action.payload);
+        state.rooms = state.rooms.map((room) => {
+          return room.id === action.payload.id ? action.payload : room;
+        });
+      })
+      .addCase(updateRoomStatus.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
       });
   },
 });

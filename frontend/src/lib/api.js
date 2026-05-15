@@ -134,6 +134,12 @@ export const roomsApi = {
       method: "POST",
     });
   },
+  updateStatus(roomId, status) {
+    return apiRequest(`/rooms/${encodeURIComponent(roomId)}/status`, {
+      method: "PATCH",
+      body: { status },
+    });
+  },
 };
 
 export const screenshotsApi = {
@@ -151,6 +157,15 @@ export const screenshotsApi = {
     return apiRequest(`/rooms/${encodeURIComponent(roomId)}/screenshots`, {
       method: "POST",
       body: formData,
+    });
+  },
+};
+
+export const editorApi = {
+  run(roomId, data) {
+    return apiRequest(`/editor/${encodeURIComponent(roomId)}/run`, {
+      method: "POST",
+      body: data,
     });
   },
 };

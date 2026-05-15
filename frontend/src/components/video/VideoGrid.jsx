@@ -1,7 +1,7 @@
 import { useAppSelector } from "@/store/hooks";
 import { ParticipantTile } from "./ParticipantTile";
 
-export function VideoGrid({ localUserId, localStream, screenStream }) {
+export function VideoGrid({ localUserId, localStream, remoteStreams }) {
   const list = useAppSelector((s) => s.participants.list);
 
   return (
@@ -14,8 +14,7 @@ export function VideoGrid({ localUserId, localStream, screenStream }) {
             key={p.id}
             p={p}
             isLocal={isLocal}
-            stream={isLocal ? localStream : null}
-            screenStream={isLocal ? screenStream : null}
+            stream={isLocal ? localStream : remoteStreams[p.id]?.camera}
           />
         );
       })}

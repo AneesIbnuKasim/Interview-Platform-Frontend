@@ -1,5 +1,13 @@
 import Editor from "@monaco-editor/react";
-import { Check, Copy, Loader2, Maximize2, Minimize2, Play } from "lucide-react";
+import {
+  Check,
+  Copy,
+  Loader2,
+  Maximize2,
+  Minimize2,
+  Play,
+  Terminal,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -15,6 +23,7 @@ import {
 import { toggleFullscreenEditor } from "@/features/ui/uiSlice";
 import { Button } from "@/components/common/Button";
 import { connectSocket, socketEvents } from "@/lib/socket";
+import { editorService } from "@/services/editorService";
 
 const langs = [
   "typescript",
@@ -26,6 +35,8 @@ const langs = [
   "rust",
 ];
 const syncDelayMs = 300;
+const outputMinHeight = 120;
+const outputMaxHeight = 420;
 
 export function CodeEditor({ roomId }) {
   const { language, code, saved, syncing, version, error } = useAppSelector(
@@ -34,6 +45,9 @@ export function CodeEditor({ roomId }) {
   const fullscreen = useAppSelector((s) => s.ui.fullscreenEditor);
   const dispatch = useAppDispatch();
   const [copied, setCopied] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [execution, setExecution] = useState(null);
+  const [outputHeight, setOutputHeight] = useState(176);
   const applyingRemote = useRef(false);
   const syncTimer = useRef(null);
   const latestCode = useRef(code);
@@ -217,6 +231,38 @@ export function CodeEditor({ roomId }) {
     });
   }, [dispatch, handleSyncResponse, roomId]);
 
+  const runCode = useCallback(async () => {
+    if (!roomId || running) return;
+
+    setRunning(true);
+    setExecution({
+      status: "running",
+      stdout: "",
+      stderr: "",
+      durationMs: null,
+      exitCode: null,
+    });
+
+    try {
+      const result = await editorService.runCode(roomId, {
+        language,
+        code: latestCode.current,
+      });
+
+      setExecution(result.execution);
+    } catch (error) {
+      setExecution({
+        status: "failed",
+        stdout: "",
+        stderr: error.message || "Code execution failed",
+        durationMs: null,
+        exitCode: null,
+      });
+    } finally {
+      setRunning(false);
+    }
+  }, [language, roomId, running]);
+
   function copy() {
     navigator.clipboard.writeText(roomId);
     setCopied(true);
@@ -264,8 +310,16 @@ export function CodeEditor({ roomId }) {
           >
             {fullscreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
           </Button>
-          <Button size="sm" onClick={saveEditorState}>
-            <Play size={14} /> Run
+          <Button size="sm" variant="outline" onClick={saveEditorState}>
+            <Check size={14} /> Save
+          </Button>
+          <Button size="sm" onClick={runCode} disabled={running}>
+            {running ? (
+              <Loader2 size={14} className="animate-spin" />
+            ) : (
+              <Play size={14} />
+            )}
+            Run
           </Button>
         </div>
       </div>
@@ -292,6 +346,81 @@ export function CodeEditor({ roomId }) {
           }
         />
       </div>
+      {execution && (
+        <ExecutionOutput
+          execution={execution}
+          height={outputHeight}
+          onHeightChange={setOutputHeight}
+        />
+      )}
+    </div>
+  );
+}
+
+function ExecutionOutput({ execution, height, onHeightChange }) {
+  const output =
+    [execution.stdout, execution.stderr].filter(Boolean).join("\n") ||
+    "Program finished with no output.";
+  const failed = execution.status !== "completed";
+
+  const startResize = useCallback(
+    (event) => {
+      event.preventDefault();
+
+      const startY = event.clientY;
+      const startHeight = height;
+
+      const resize = (moveEvent) => {
+        const nextHeight = startHeight + startY - moveEvent.clientY;
+        onHeightChange(
+          Math.min(outputMaxHeight, Math.max(outputMinHeight, nextHeight)),
+        );
+      };
+      const stopResize = () => {
+        document.removeEventListener("pointermove", resize);
+        document.removeEventListener("pointerup", stopResize);
+      };
+
+      document.addEventListener("pointermove", resize);
+      document.addEventListener("pointerup", stopResize);
+    },
+    [height, onHeightChange],
+  );
+
+  return (
+    <div
+      className="flex shrink-0 flex-col border-t border-border/60 bg-background/80"
+      style={{ height }}
+    >
+      <button
+        type="button"
+        aria-label="Resize output panel"
+        onPointerDown={startResize}
+        className="h-2 cursor-row-resize border-b border-border/40 bg-secondary/30 hover:bg-primary/30"
+      />
+      <div className="flex items-center justify-between px-3 py-2 text-xs">
+        <span className="inline-flex items-center gap-1.5 font-medium">
+          <Terminal size={13} />
+          Output
+        </span>
+        <span className={failed ? "text-destructive" : "text-success"}>
+          {execution.status}
+          {typeof execution.exitCode === "number"
+            ? ` · exit ${execution.exitCode}`
+            : ""}
+          {typeof execution.durationMs === "number"
+            ? ` · ${execution.durationMs}ms`
+            : ""}
+        </span>
+      </div>
+      <pre
+        className={
+          "min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-3 pb-3 text-xs leading-5 " +
+          (failed ? "text-destructive" : "text-foreground")
+        }
+      >
+        {output}
+      </pre>
     </div>
   );
 }

@@ -19,6 +19,9 @@ export const roomService = {
   leaveRoom(roomId) {
     return roomsApi.leave(roomId);
   },
+  updateRoomStatus(roomId, status) {
+    return roomsApi.updateStatus(roomId, status);
+  },
   listScreenshots(roomId) {
     return screenshotsApi.list(roomId);
   },

@@ -11,13 +11,19 @@ import {
   Users,
   PhoneOff,
   Wifi,
+  Copy,
+  ShieldCheck,
 } from "lucide-react";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { VideoGrid } from "@/components/video/VideoGrid";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { Button } from "@/components/common/Button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { joinRoom, leaveRoomSession } from "@/features/room/roomSlice";
+import {
+  joinRoom,
+  leaveRoomSession,
+  updateRoomStatus,
+} from "@/features/room/roomSlice";
 import {
   setParticipants,
   updateParticipantMedia,
@@ -26,17 +32,33 @@ import { incUnread, markRead, receiveMessage } from "@/features/chat/chatSlice";
 import { setChatOpen, setParticipantsOpen } from "@/features/ui/uiSlice";
 import { useElapsed } from "@/hooks/useElapsed";
 import { cn } from "@/lib/cn";
-import { connectSocket, socketEvents } from "@/lib/socket";
+import { connectSocket, getSocket, socketEvents } from "@/lib/socket";
 
 function mapParticipants(participants) {
   return (participants || []).map((participant, index) => ({
     id: participant.id,
+    socketId: participant.socketId,
     name: participant.name,
     role: participant.role,
     muted: participant.media?.micOn !== true,
     cameraOn: participant.media?.cameraOn === true,
     screenSharing: Boolean(participant.media?.screenSharing),
     quality: participant.status === "active" ? "good" : "ok",
+    color: ["#7c3aed", "#06b6d4", "#ec4899", "#22c55e"][index % 4],
+  }));
+}
+
+function mapSocketParticipants(participants) {
+  return (participants || []).map((participant, index) => ({
+    id: participant.userId,
+    socketId: participant.socketId,
+    name: participant.name,
+    role: participant.role,
+    muted: participant.media?.micOn === false,
+    cameraOn: participant.media?.cameraOn !== false,
+    speaking: Boolean(participant.media?.speaking),
+    screenSharing: Boolean(participant.media?.screenSharing),
+    quality: "good",
     color: ["#7c3aed", "#06b6d4", "#ec4899", "#22c55e"][index % 4],
   }));
 }
@@ -56,13 +78,20 @@ export default function RoomPage() {
   const [mic, setMic] = useState(false);
   const [cam, setCam] = useState(false);
   const [screen, setScreen] = useState(false);
+  const [shareView, setShareView] = useState("editor");
   const [localStream, setLocalStream] = useState(null);
   const [screenStream, setScreenStream] = useState(null);
+  const [remoteStreams, setRemoteStreams] = useState({});
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
+  const peersRef = useRef(new Map());
+  const participantsRef = useRef(new Map());
+  const leavingRef = useRef(false);
   const micRef = useRef(mic);
   const camRef = useRef(cam);
+  const isHost = Boolean(me?.id && room.current?.ownerId === me.id);
 
+  // Socket/WebRTC handlers use refs for mutable peer and media state.
   useEffect(() => {
     micRef.current = mic;
     camRef.current = cam;
@@ -80,12 +109,185 @@ export default function RoomPage() {
     }
   }, [dispatch, roomParticipants]);
 
+  function getPeerKey(socketId, kind) {
+    return `${socketId}:${kind}`;
+  }
+
+  function setRemoteStream(userId, kind, stream) {
+    setRemoteStreams((current) => ({
+      ...current,
+      [userId]: {
+        ...current[userId],
+        [kind]: stream,
+      },
+    }));
+  }
+
+  function clearRemoteStream(userId, kind) {
+    setRemoteStreams((current) => {
+      const next = { ...current };
+      if (!next[userId]) return current;
+
+      next[userId] = {
+        ...next[userId],
+        [kind]: null,
+      };
+
+      return next;
+    });
+  }
+
+  function addLocalTracks(peer, kind) {
+    const stream =
+      kind === "screen" ? screenStreamRef.current : localStreamRef.current;
+    if (!stream) return;
+
+    stream.getTracks().forEach((track) => {
+      const alreadyAdded = peer.pc.getSenders().some((sender) => {
+        return sender.track === track;
+      });
+
+      if (!alreadyAdded) {
+        peer.pc.addTrack(track, stream);
+      }
+    });
+  }
+
+  function removeStaleLocalTracks(peer, kind) {
+    const stream =
+      kind === "screen" ? screenStreamRef.current : localStreamRef.current;
+    const liveTracks = new Set(stream?.getTracks() || []);
+
+    peer.pc.getSenders().forEach((sender) => {
+      if (!sender.track || liveTracks.has(sender.track)) return;
+
+      peer.pc.removeTrack(sender);
+    });
+  }
+
+  async function negotiatePeer(peer) {
+    const socket = connectSocket();
+    if (!socket || peer.pc.signalingState !== "stable") return;
+
+    const offer = await peer.pc.createOffer();
+    await peer.pc.setLocalDescription(offer);
+    socket.emit(socketEvents.SIGNAL_OFFER, {
+      roomId,
+      targetSocketId: peer.socketId,
+      kind: peer.kind,
+      offer,
+    });
+  }
+
+  function createPeerConnection(participant, kind) {
+    const key = getPeerKey(participant.socketId, kind);
+    const existingPeer = peersRef.current.get(key);
+    if (existingPeer) return existingPeer;
+
+    const socket = connectSocket();
+    const pc = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+    });
+    const peer = {
+      pc,
+      kind,
+      socketId: participant.socketId,
+      userId: participant.id || participant.userId,
+    };
+
+    pc.onicecandidate = (event) => {
+      if (!event.candidate || !socket) return;
+
+      socket.emit(socketEvents.SIGNAL_ICE_CANDIDATE, {
+        roomId,
+        targetSocketId: peer.socketId,
+        kind,
+        candidate: event.candidate,
+      });
+    };
+
+    pc.ontrack = (event) => {
+      const [stream] = event.streams;
+      const remoteStream = stream || new MediaStream([event.track]);
+      setRemoteStream(peer.userId, kind, remoteStream);
+
+      event.track.addEventListener("ended", () => {
+        clearRemoteStream(peer.userId, kind);
+      });
+    };
+
+    if (kind === "camera") {
+      pc.addTransceiver("audio", { direction: "recvonly" });
+      pc.addTransceiver("video", { direction: "recvonly" });
+    }
+
+    addLocalTracks(peer, kind);
+    peersRef.current.set(key, peer);
+    return peer;
+  }
+
+  function closePeer(socketId, kind) {
+    const key = getPeerKey(socketId, kind);
+    const peer = peersRef.current.get(key);
+    if (!peer) return;
+
+    peer.pc.close();
+    peersRef.current.delete(key);
+    clearRemoteStream(peer.userId, kind);
+  }
+
+  async function ensureCameraPeers(participants) {
+    const socket = connectSocket();
+    if (!socket?.id) return;
+
+    for (const participant of participants) {
+      if (!participant.socketId || participant.socketId === socket.id) continue;
+
+      const peer = createPeerConnection(participant, "camera");
+      if (socket.id < participant.socketId) {
+        await negotiatePeer(peer);
+      }
+    }
+  }
+
+  async function renegotiatePeers(kind) {
+    for (const peer of peersRef.current.values()) {
+      if (peer.kind === kind) {
+        removeStaleLocalTracks(peer, kind);
+        addLocalTracks(peer, kind);
+        await negotiatePeer(peer);
+      }
+    }
+  }
+
+  async function startScreenPeers() {
+    const socket = connectSocket();
+    if (!socket?.id) return;
+
+    for (const participant of participantsRef.current.values()) {
+      if (!participant.socketId || participant.socketId === socket.id) continue;
+
+      const peer = createPeerConnection(participant, "screen");
+      await negotiatePeer(peer);
+    }
+  }
+
+  function closeScreenPeers() {
+    for (const peer of Array.from(peersRef.current.values())) {
+      if (peer.kind === "screen") {
+        closePeer(peer.socketId, "screen");
+      }
+    }
+  }
+
   useEffect(() => {
     const socket = connectSocket();
 
     if (!socket || !roomId) return undefined;
 
     const joinRealtimeRoom = () => {
+      if (leavingRef.current) return;
+
       socket.emit(socketEvents.ROOM_JOIN, {
         roomId,
         micOn: micRef.current,
@@ -113,26 +315,74 @@ export default function RoomPage() {
           setCam(payload.participant.media?.cameraOn !== false);
           setScreen(Boolean(payload.participant.media?.screenSharing));
         }
+
+        if (!payload.participant.media?.screenSharing) {
+          clearRemoteStream(payload.participant.userId, "screen");
+          closePeer(payload.participant.socketId, "screen");
+        }
       }
     };
     const handleParticipants = (payload) => {
       if (!payload?.participants) return;
+      const mappedParticipants = mapSocketParticipants(payload.participants);
 
-      dispatch(
-        setParticipants(
-          payload.participants.map((participant, index) => ({
-            id: participant.userId,
-            name: participant.name,
-            role: participant.role,
-            muted: participant.media?.micOn === false,
-            cameraOn: participant.media?.cameraOn !== false,
-            speaking: Boolean(participant.media?.speaking),
-            screenSharing: Boolean(participant.media?.screenSharing),
-            quality: "good",
-            color: ["#7c3aed", "#06b6d4", "#ec4899", "#22c55e"][index % 4],
-          })),
-        ),
+      participantsRef.current = new Map(
+        mappedParticipants
+          .filter((participant) => participant.socketId)
+          .map((participant) => [participant.socketId, participant]),
       );
+      const activeSocketIds = new Set(participantsRef.current.keys());
+      peersRef.current.forEach((peer) => {
+        if (!activeSocketIds.has(peer.socketId)) {
+          closePeer(peer.socketId, peer.kind);
+        }
+      });
+      dispatch(setParticipants(mappedParticipants));
+      ensureCameraPeers(mappedParticipants);
+    };
+    const handleOffer = async (payload) => {
+      const kind = payload.kind || "camera";
+      const participant = {
+        id: payload.from?.userId,
+        userId: payload.from?.userId,
+        socketId: payload.from?.socketId,
+        name: payload.from?.name,
+      };
+      if (!participant.socketId) return;
+
+      const socket = connectSocket();
+      const peer = createPeerConnection(participant, kind);
+      addLocalTracks(peer, kind);
+
+      await peer.pc.setRemoteDescription(
+        new RTCSessionDescription(payload.offer),
+      );
+      const answer = await peer.pc.createAnswer();
+      await peer.pc.setLocalDescription(answer);
+      socket?.emit(socketEvents.SIGNAL_ANSWER, {
+        roomId,
+        targetSocketId: participant.socketId,
+        kind,
+        answer,
+      });
+    };
+    const handleAnswer = async (payload) => {
+      const kind = payload.kind || "camera";
+      const key = getPeerKey(payload.from?.socketId, kind);
+      const peer = peersRef.current.get(key);
+      if (!peer || peer.pc.signalingState === "stable") return;
+
+      await peer.pc.setRemoteDescription(
+        new RTCSessionDescription(payload.answer),
+      );
+    };
+    const handleIceCandidate = async (payload) => {
+      const kind = payload.kind || "camera";
+      const key = getPeerKey(payload.from?.socketId, kind);
+      const peer = peersRef.current.get(key);
+      if (!peer || !payload.candidate) return;
+
+      await peer.pc.addIceCandidate(new RTCIceCandidate(payload.candidate));
     };
 
     socket.on("connect", joinRealtimeRoom);
@@ -142,6 +392,9 @@ export default function RoomPage() {
     socket.on(socketEvents.PARTICIPANTS_STATE, handleParticipants);
     socket.on(socketEvents.PARTICIPANT_MEDIA_CHANGED, handleMedia);
     socket.on(socketEvents.MEDIA_SCREEN_SHARE_CHANGED, handleMedia);
+    socket.on(socketEvents.SIGNAL_OFFER, handleOffer);
+    socket.on(socketEvents.SIGNAL_ANSWER, handleAnswer);
+    socket.on(socketEvents.SIGNAL_ICE_CANDIDATE, handleIceCandidate);
 
     if (socket.connected) {
       joinRealtimeRoom();
@@ -155,7 +408,11 @@ export default function RoomPage() {
       socket.off(socketEvents.PARTICIPANTS_STATE, handleParticipants);
       socket.off(socketEvents.PARTICIPANT_MEDIA_CHANGED, handleMedia);
       socket.off(socketEvents.MEDIA_SCREEN_SHARE_CHANGED, handleMedia);
+      socket.off(socketEvents.SIGNAL_OFFER, handleOffer);
+      socket.off(socketEvents.SIGNAL_ANSWER, handleAnswer);
+      socket.off(socketEvents.SIGNAL_ICE_CANDIDATE, handleIceCandidate);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dispatch, me?.id, roomId, ui.chatOpen]);
 
   useEffect(() => {
@@ -167,20 +424,85 @@ export default function RoomPage() {
   }, [dispatch, roomId, ui.chatOpen]);
 
   useEffect(() => {
+    const peers = peersRef.current;
+
     return () => {
+      const socket = getSocket();
+
+      if (socket.connected && roomId) {
+        socket.emit(socketEvents.ROOM_LEAVE, { roomId, persist: false });
+      }
+
+      dispatch(setParticipants([]));
       localStreamRef.current?.getTracks().forEach((track) => track.stop());
       screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+      peers.forEach((peer) => peer.pc.close());
+      peers.clear();
     };
-  }, []);
+  }, [dispatch, roomId]);
+
+  function leaveRealtimeRoom() {
+    const socket = getSocket();
+
+    if (!socket.connected) {
+      return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+      const timeout = window.setTimeout(resolve, 700);
+
+      socket.emit(socketEvents.ROOM_LEAVE, { roomId, persist: false }, () => {
+        window.clearTimeout(timeout);
+        resolve();
+      });
+    });
+  }
 
   async function leave() {
+    leavingRef.current = true;
+
     try {
       await dispatch(leaveRoomSession(roomId)).unwrap();
+      await leaveRealtimeRoom();
+      dispatch(setParticipants([]));
       navigate("/dashboard");
     } catch {
+      leavingRef.current = false;
       // Error is rendered from Redux state.
     }
   }
+
+  async function endInterview() {
+    if (!isHost || !roomId) return;
+
+    leavingRef.current = true;
+
+    try {
+      await dispatch(updateRoomStatus({ roomId, status: "ended" })).unwrap();
+      await leaveRealtimeRoom();
+      dispatch(setParticipants([]));
+      navigate("/dashboard");
+    } catch {
+      leavingRef.current = false;
+      // Error is rendered from Redux state.
+    }
+  }
+
+  function copyRoomLink() {
+    const value = window.location.href;
+    navigator.clipboard?.writeText(value);
+  }
+
+  const screenPresenter = participants.find((participant) => {
+    return participant.screenSharing;
+  });
+  const isLocalPresenter = screenPresenter?.id === me?.id;
+  const showScreenStage = Boolean(
+    screenPresenter && (!isLocalPresenter || shareView === "screen"),
+  );
+  const activeScreenStream = isLocalPresenter
+    ? screenStream
+    : remoteStreams[screenPresenter?.id]?.screen;
 
   async function ensureLocalStream(constraints) {
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -269,9 +591,10 @@ export default function RoomPage() {
         stopLocalTracks("audio");
       }
 
-      emitMedia(socketEvents.MEDIA_MIC_TOGGLE, { micOn: nextMicState }, () =>
-        setMic(nextMicState),
-      );
+      emitMedia(socketEvents.MEDIA_MIC_TOGGLE, { micOn: nextMicState }, () => {
+        setMic(nextMicState);
+        renegotiatePeers("camera");
+      });
     } catch {
       emitMedia(socketEvents.MEDIA_MIC_TOGGLE, { micOn: false }, () =>
         setMic(false),
@@ -292,7 +615,10 @@ export default function RoomPage() {
       emitMedia(
         socketEvents.MEDIA_CAMERA_TOGGLE,
         { cameraOn: nextCameraState },
-        () => setCam(nextCameraState),
+        () => {
+          setCam(nextCameraState);
+          renegotiatePeers("camera");
+        },
       );
     } catch {
       emitMedia(socketEvents.MEDIA_CAMERA_TOGGLE, { cameraOn: false }, () =>
@@ -312,6 +638,7 @@ export default function RoomPage() {
       screenStreamRef.current?.getTracks().forEach((track) => track.stop());
       screenStreamRef.current = null;
       setScreenStream(null);
+      closeScreenPeers();
       emitMedia(socketEvents.MEDIA_SCREEN_SHARE_STOP, {}, () =>
         setScreen(false),
       );
@@ -336,11 +663,14 @@ export default function RoomPage() {
         });
       });
 
-      emitMedia(socketEvents.MEDIA_SCREEN_SHARE_START, {}, () =>
-        setScreen(true),
-      );
+      emitMedia(socketEvents.MEDIA_SCREEN_SHARE_START, {}, () => {
+        setScreen(true);
+        setShareView("editor");
+        startScreenPeers();
+      });
     } catch {
       setScreenStream(null);
+      closeScreenPeers();
       emitMedia(socketEvents.MEDIA_SCREEN_SHARE_STOP, {}, () =>
         setScreen(false),
       );
@@ -363,7 +693,21 @@ export default function RoomPage() {
             ui.fullscreenEditor && "w-full",
           )}
         >
-          <CodeEditor roomId={roomId} />
+          {showScreenStage ? (
+            <ScreenShareStage
+              presenter={screenPresenter}
+              stream={activeScreenStream}
+              isLocal={isLocalPresenter}
+              onShowEditor={() => setShareView("editor")}
+            />
+          ) : (
+            <div className="flex h-full min-h-0 flex-col gap-2">
+              {isLocalPresenter && (
+                <SharingEditorBar onShowScreen={() => setShareView("screen")} />
+              )}
+              <CodeEditor roomId={roomId} />
+            </div>
+          )}
         </section>
 
         <AnimatePresence initial={false}>
@@ -375,18 +719,28 @@ export default function RoomPage() {
               className="hidden w-[340px] flex-col gap-3 lg:flex"
             >
               {ui.participantsOpen && (
-                <div className="glass rounded-2xl p-3">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Participants</h3>
-                    <span className="text-xs text-muted-foreground">
-                      {participants.length}
-                    </span>
+                <div className="flex flex-col gap-3">
+                  {isHost && (
+                    <HostControls
+                      roomCode={roomId}
+                      status={room.current?.status}
+                      onCopy={copyRoomLink}
+                      onEnd={endInterview}
+                    />
+                  )}
+                  <div className="glass rounded-2xl p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h3 className="text-sm font-semibold">Participants</h3>
+                      <span className="text-xs text-muted-foreground">
+                        {participants.length}
+                      </span>
+                    </div>
+                    <VideoGrid
+                      localUserId={me?.id}
+                      localStream={localStream}
+                      remoteStreams={remoteStreams}
+                    />
                   </div>
-                  <VideoGrid
-                    localUserId={me?.id}
-                    localStream={localStream}
-                    screenStream={screenStream}
-                  />
                 </div>
               )}
               {ui.chatOpen && (
@@ -411,6 +765,98 @@ export default function RoomPage() {
         onPeople={() => dispatch(setParticipantsOpen(!ui.participantsOpen))}
         onLeave={leave}
       />
+    </div>
+  );
+}
+
+function SharingEditorBar({ onShowScreen }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs">
+      <span className="inline-flex items-center gap-2 text-primary">
+        <ScreenShare size={14} />
+        Your screen is visible to the interviewer
+      </span>
+      <Button size="sm" variant="outline" onClick={onShowScreen}>
+        Preview share
+      </Button>
+    </div>
+  );
+}
+
+function ScreenShareStage({ presenter, stream, isLocal, onShowEditor }) {
+  const videoRef = useRef(null);
+
+  useEffect(() => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    video.srcObject = stream || null;
+
+    return () => {
+      video.srcObject = null;
+    };
+  }, [stream]);
+
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-black">
+      <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-sm text-white">
+        <span className="inline-flex items-center gap-2">
+          <ScreenShare size={16} />
+          {isLocal
+            ? "You are sharing your screen"
+            : `${presenter.name} is sharing`}
+        </span>
+        {isLocal && (
+          <Button size="sm" variant="outline" onClick={onShowEditor}>
+            Code editor
+          </Button>
+        )}
+      </div>
+      <div className="grid min-h-0 flex-1 place-items-center bg-black">
+        {stream ? (
+          <video
+            ref={videoRef}
+            autoPlay
+            muted={isLocal}
+            playsInline
+            className="h-full w-full object-contain"
+          />
+        ) : (
+          <div className="text-sm text-white/70">
+            Connecting screen share...
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function HostControls({ roomCode, status, onCopy, onEnd }) {
+  const isEnded = status === "ended" || status === "archived";
+
+  return (
+    <div className="glass rounded-2xl p-3">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
+          <ShieldCheck size={15} />
+          Host controls
+        </h3>
+        <span className="rounded-md bg-secondary px-2 py-1 text-[11px] text-muted-foreground">
+          {status || "active"}
+        </span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" onClick={onCopy}>
+          <Copy size={14} />
+          Copy link
+        </Button>
+        <Button size="sm" variant="danger" onClick={onEnd} disabled={isEnded}>
+          <PhoneOff size={14} />
+          End interview
+        </Button>
+      </div>
+      <div className="mt-3 rounded-xl border border-border/70 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+        Room {roomCode}
+      </div>
     </div>
   );
 }

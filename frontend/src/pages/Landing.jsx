@@ -37,10 +37,6 @@ function Hero() {
           initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}
           className="mx-auto max-w-3xl text-center"
         >
-          <span className="glass inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs text-muted-foreground">
-            <span className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
-            Now in private beta
-          </span>
           <h1 className="mt-6 text-balance text-5xl font-semibold tracking-tight md:text-7xl">
             Interviews that feel <span className="text-gradient">like pair programming</span>
           </h1>

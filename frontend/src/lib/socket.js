@@ -39,6 +39,10 @@ export const socketEvents = {
   MEDIA_SCREEN_SHARE_STOP: "media:screen-share-stop",
   MEDIA_SCREEN_SHARE_CHANGED: "media:screen-share-changed",
 
+  SIGNAL_OFFER: "signal:offer",
+  SIGNAL_ANSWER: "signal:answer",
+  SIGNAL_ICE_CANDIDATE: "signal:ice-candidate",
+
   NOTIFICATION_NEW: "notification:new",
 };
 
