@@ -13,6 +13,9 @@ import {
   Wifi,
   Copy,
   ShieldCheck,
+  RefreshCw,
+  UserCheck,
+  UserX,
 } from "lucide-react";
 import { CodeEditor } from "@/components/editor/CodeEditor";
 import { VideoGrid } from "@/components/video/VideoGrid";
@@ -20,8 +23,13 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { Button } from "@/components/common/Button";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
+  admitParticipant,
+  denyParticipant,
+  fetchRoom,
   joinRoom,
+  leaveRoom as resetRoomState,
   leaveRoomSession,
+  setRoom,
   updateRoomStatus,
 } from "@/features/room/roomSlice";
 import {
@@ -44,6 +52,8 @@ function mapParticipants(participants) {
     socketId: participant.socketId,
     name: participant.name,
     role: participant.role,
+    status: participant.status,
+    requestedAt: participant.requestedAt,
     muted: participant.media?.micOn !== true,
     cameraOn: participant.media?.cameraOn === true,
     screenSharing: Boolean(participant.media?.screenSharing),
@@ -58,6 +68,7 @@ function mapSocketParticipants(participants) {
     socketId: participant.socketId,
     name: participant.name,
     role: participant.role,
+    status: "active",
     muted: participant.media?.micOn === false,
     cameraOn: participant.media?.cameraOn !== false,
     speaking: Boolean(participant.media?.speaking),
@@ -86,6 +97,7 @@ export default function RoomPage() {
   const [localStream, setLocalStream] = useState(null);
   const [screenStream, setScreenStream] = useState(null);
   const [remoteStreams, setRemoteStreams] = useState({});
+  const [checkingAdmission, setCheckingAdmission] = useState(false);
   const localStreamRef = useRef(null);
   const screenStreamRef = useRef(null);
   const peersRef = useRef(new Map());
@@ -94,6 +106,9 @@ export default function RoomPage() {
   const micRef = useRef(mic);
   const camRef = useRef(cam);
   const isHost = Boolean(me?.id && room.current?.ownerId === me.id);
+  const pendingRequests = (room.current?.participants || []).filter((item) => {
+    return item.status === "pending";
+  });
 
   // Socket/WebRTC handlers use refs for mutable peer and media state.
   useEffect(() => {
@@ -108,8 +123,21 @@ export default function RoomPage() {
   }, [roomId, dispatch]);
 
   useEffect(() => {
-    if (roomParticipants) {
-      dispatch(setParticipants(mapParticipants(roomParticipants)));
+    if (!isHost || !roomId) return undefined;
+
+    const interval = window.setInterval(() => {
+      dispatch(fetchRoom(roomId));
+    }, 5000);
+
+    return () => window.clearInterval(interval);
+  }, [dispatch, isHost, roomId]);
+
+  useEffect(() => {
+    if (roomParticipants && participantsRef.current.size === 0) {
+      const activeParticipants = roomParticipants.filter((participant) => {
+        return participant.status !== "pending";
+      });
+      dispatch(setParticipants(mapParticipants(activeParticipants)));
     }
   }, [dispatch, roomParticipants]);
 
@@ -285,9 +313,17 @@ export default function RoomPage() {
   }
 
   useEffect(() => {
+    if (
+      !roomId ||
+      room.admissionRequired ||
+      ![room.current?.id, room.current?._id].includes(roomId)
+    ) {
+      return undefined;
+    }
+
     const socket = connectSocket();
 
-    if (!socket || !roomId) return undefined;
+    if (!socket) return undefined;
 
     const joinRealtimeRoom = () => {
       if (leavingRef.current) return;
@@ -309,6 +345,11 @@ export default function RoomPage() {
       dispatch(receiveNotification(notification));
       if (!ui.chatOpen) {
         dispatch(incUnread());
+      }
+    };
+    const handleJoinRequested = (payload) => {
+      if (payload?.room) {
+        dispatch(setRoom(payload.room));
       }
     };
     const handleMedia = (payload) => {
@@ -393,6 +434,7 @@ export default function RoomPage() {
     socket.on("connect", joinRealtimeRoom);
     socket.on(socketEvents.CHAT_MESSAGE_CREATED, handleMessage);
     socket.on(socketEvents.NOTIFICATION_NEW, handleNotification);
+    socket.on(socketEvents.ROOM_JOIN_REQUESTED, handleJoinRequested);
     socket.on(socketEvents.ROOM_STATE, handleParticipants);
     socket.on(socketEvents.PARTICIPANTS_STATE, handleParticipants);
     socket.on(socketEvents.PARTICIPANT_MEDIA_CHANGED, handleMedia);
@@ -409,6 +451,7 @@ export default function RoomPage() {
       socket.off("connect", joinRealtimeRoom);
       socket.off(socketEvents.CHAT_MESSAGE_CREATED, handleMessage);
       socket.off(socketEvents.NOTIFICATION_NEW, handleNotification);
+      socket.off(socketEvents.ROOM_JOIN_REQUESTED, handleJoinRequested);
       socket.off(socketEvents.ROOM_STATE, handleParticipants);
       socket.off(socketEvents.PARTICIPANTS_STATE, handleParticipants);
       socket.off(socketEvents.PARTICIPANT_MEDIA_CHANGED, handleMedia);
@@ -418,7 +461,15 @@ export default function RoomPage() {
       socket.off(socketEvents.SIGNAL_ICE_CANDIDATE, handleIceCandidate);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, me?.id, roomId, ui.chatOpen]);
+  }, [
+    dispatch,
+    me?.id,
+    room.admissionRequired,
+    room.current?.id,
+    room.current?._id,
+    roomId,
+    ui.chatOpen,
+  ]);
 
   useEffect(() => {
     if (!ui.chatOpen || !roomId) return;
@@ -497,6 +548,50 @@ export default function RoomPage() {
   function copyRoomLink() {
     const value = window.location.href;
     navigator.clipboard?.writeText(value);
+  }
+
+  async function checkAdmission() {
+    if (!roomId) return;
+
+    setCheckingAdmission(true);
+    try {
+      await dispatch(joinRoom({ roomId })).unwrap();
+    } finally {
+      setCheckingAdmission(false);
+    }
+  }
+
+  async function leaveWaitingRoom() {
+    try {
+      await dispatch(leaveRoomSession(roomId)).unwrap();
+    } catch {
+      dispatch(resetRoomState());
+    } finally {
+      dispatch(setParticipants([]));
+      navigate("/dashboard");
+    }
+  }
+
+  function admitRequest(participantId) {
+    dispatch(admitParticipant({ roomId, participantId }));
+  }
+
+  function denyRequest(participantId) {
+    dispatch(denyParticipant({ roomId, participantId }));
+  }
+
+  if (room.admissionRequired) {
+    return (
+      <WaitingForAdmission
+        title={room.title}
+        roomCode={roomId}
+        status={room.connection}
+        error={room.error}
+        checking={checkingAdmission}
+        onCheck={checkAdmission}
+        onLeave={leaveWaitingRoom}
+      />
+    );
   }
 
   const screenPresenter = participants.find((participant) => {
@@ -730,15 +825,22 @@ export default function RoomPage() {
                     <HostControls
                       roomCode={roomId}
                       status={room.current?.status}
+                      pendingRequests={pendingRequests}
                       onCopy={copyRoomLink}
                       onEnd={endInterview}
+                      onAdmit={admitRequest}
+                      onDeny={denyRequest}
                     />
                   )}
                   <div className="glass rounded-2xl p-3">
                     <div className="mb-2 flex items-center justify-between">
                       <h3 className="text-sm font-semibold">Participants</h3>
                       <span className="text-xs text-muted-foreground">
-                        {participants.length}
+                        {
+                          participants.filter((participant) => {
+                            return participant.status !== "pending";
+                          }).length
+                        }
                       </span>
                     </div>
                     <VideoGrid
@@ -771,6 +873,61 @@ export default function RoomPage() {
         onPeople={() => dispatch(setParticipantsOpen(!ui.participantsOpen))}
         onLeave={leave}
       />
+    </div>
+  );
+}
+
+function WaitingForAdmission({
+  title,
+  roomCode,
+  status,
+  error,
+  checking,
+  onCheck,
+  onLeave,
+}) {
+  return (
+    <div className="flex h-screen flex-col bg-background">
+      <TopBar
+        title={title}
+        elapsed="00:00"
+        status={status}
+        error={error || "Waiting for host admission"}
+        onLeave={onLeave}
+      />
+      <main className="grid min-h-0 flex-1 place-items-center px-4">
+        <div className="glass w-full max-w-md rounded-2xl p-5">
+          <div className="mb-4 flex items-center gap-3">
+            <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+              <ShieldCheck size={20} />
+            </span>
+            <div>
+              <h1 className="text-base font-semibold">Admission requested</h1>
+              <p className="text-sm text-muted-foreground">
+                The room host needs to admit you before the interview opens.
+              </p>
+            </div>
+          </div>
+          <div className="mb-4 rounded-xl border border-border/70 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+            Room {roomCode}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onCheck}
+              disabled={checking}
+            >
+              <RefreshCw size={14} className={checking ? "animate-spin" : ""} />
+              Check status
+            </Button>
+            <Button size="sm" variant="danger" onClick={onLeave}>
+              <PhoneOff size={14} />
+              Leave
+            </Button>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }
@@ -836,7 +993,15 @@ function ScreenShareStage({ presenter, stream, isLocal, onShowEditor }) {
   );
 }
 
-function HostControls({ roomCode, status, onCopy, onEnd }) {
+function HostControls({
+  roomCode,
+  status,
+  pendingRequests,
+  onCopy,
+  onEnd,
+  onAdmit,
+  onDeny,
+}) {
   const isEnded = status === "ended" || status === "archived";
 
   return (
@@ -863,6 +1028,46 @@ function HostControls({ roomCode, status, onCopy, onEnd }) {
       <div className="mt-3 rounded-xl border border-border/70 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
         Room {roomCode}
       </div>
+      {pendingRequests.length > 0 && (
+        <div className="mt-3 space-y-2">
+          <h4 className="text-xs font-semibold text-muted-foreground">
+            Waiting for admission
+          </h4>
+          {pendingRequests.map((participant) => (
+            <div
+              key={participant.id}
+              className="rounded-xl border border-border/70 bg-background/40 p-2"
+            >
+              <div className="mb-2 min-w-0">
+                <div className="truncate text-sm font-medium">
+                  {participant.name}
+                </div>
+                <div className="text-xs capitalize text-muted-foreground">
+                  {participant.role}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => onAdmit(participant.id)}
+                >
+                  <UserCheck size={14} />
+                  Admit
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onDeny(participant.id)}
+                >
+                  <UserX size={14} />
+                  Deny
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -871,7 +1076,7 @@ function TopBar({ title, elapsed, status, error, onLeave }) {
   const dot =
     status === "connected"
       ? "bg-success"
-      : status === "connecting"
+      : status === "connecting" || status === "waiting"
         ? "bg-warning animate-pulse"
         : "bg-destructive";
   return (

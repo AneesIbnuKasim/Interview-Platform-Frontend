@@ -243,7 +243,7 @@ export default function Dashboard() {
       const result = await dispatch(
         joinRoomByCode({ roomCode: join.trim() }),
       ).unwrap();
-      navigate(`/room/${result.id}`);
+      navigate(`/room/${result.room.id}`);
     } catch {
       // Error is rendered from Redux state.
     }

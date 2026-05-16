@@ -3,10 +3,11 @@ import { ParticipantTile } from "./ParticipantTile";
 
 export function VideoGrid({ localUserId, localStream, remoteStreams }) {
   const list = useAppSelector((s) => s.participants.list);
+  const visibleParticipants = list.filter((p) => p.status !== "pending");
 
   return (
     <div className="grid grid-cols-2 gap-2">
-      {list.map((p) => {
+      {visibleParticipants.map((p) => {
         const isLocal = p.id === localUserId;
 
         return (

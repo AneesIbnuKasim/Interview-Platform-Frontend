@@ -9,6 +9,7 @@ const SOCKET_URL =
 
 export const socketEvents = {
   ROOM_JOIN: "room:join",
+  ROOM_JOIN_REQUESTED: "room:join-requested",
   ROOM_LEAVE: "room:leave",
   ROOM_STATE: "room:state",
   PARTICIPANTS_STATE: "participants:state",

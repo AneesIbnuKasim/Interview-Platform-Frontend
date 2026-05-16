@@ -152,6 +152,22 @@ export const roomsApi = {
       body: { status },
     });
   },
+  admitParticipant(roomId, participantId) {
+    return apiRequest(
+      `/rooms/${encodeURIComponent(roomId)}/participants/${encodeURIComponent(participantId)}/admit`,
+      {
+        method: "PATCH",
+      },
+    );
+  },
+  denyParticipant(roomId, participantId) {
+    return apiRequest(
+      `/rooms/${encodeURIComponent(roomId)}/participants/${encodeURIComponent(participantId)}/deny`,
+      {
+        method: "PATCH",
+      },
+    );
+  },
 };
 
 export const screenshotsApi = {

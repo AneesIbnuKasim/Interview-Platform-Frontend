@@ -10,6 +10,8 @@ const initialState = {
   rooms: [],
   status: "idle",
   error: null,
+  admissionRequired: false,
+  pendingParticipant: null,
 };
 
 function toTimestamp(value) {
@@ -25,6 +27,18 @@ function applyRoom(state, room) {
 
 function errorMessage(error) {
   return error?.message || "Room request failed";
+}
+
+function clearAdmission(state) {
+  state.admissionRequired = false;
+  state.pendingParticipant = null;
+}
+
+function applyJoinResult(state, result) {
+  applyRoom(state, result.room);
+  state.admissionRequired = Boolean(result.admissionRequired);
+  state.pendingParticipant = result.pendingParticipant ?? null;
+  state.connection = result.admissionRequired ? "waiting" : "connected";
 }
 
 export const fetchRooms = createAsyncThunk(
@@ -68,7 +82,7 @@ export const joinRoom = createAsyncThunk(
   async ({ roomId, displayName, role }, { rejectWithValue }) => {
     try {
       const data = await roomService.joinRoom(roomId, { displayName, role });
-      return data.room;
+      return data;
     } catch (error) {
       return rejectWithValue(errorMessage(error));
     }
@@ -83,7 +97,7 @@ export const joinRoomByCode = createAsyncThunk(
         displayName,
         role,
       });
-      return data.room;
+      return data;
     } catch (error) {
       return rejectWithValue(errorMessage(error));
     }
@@ -114,6 +128,30 @@ export const updateRoomStatus = createAsyncThunk(
   },
 );
 
+export const admitParticipant = createAsyncThunk(
+  "room/admitParticipant",
+  async ({ roomId, participantId }, { rejectWithValue }) => {
+    try {
+      const data = await roomService.admitParticipant(roomId, participantId);
+      return data.room;
+    } catch (error) {
+      return rejectWithValue(errorMessage(error));
+    }
+  },
+);
+
+export const denyParticipant = createAsyncThunk(
+  "room/denyParticipant",
+  async ({ roomId, participantId }, { rejectWithValue }) => {
+    try {
+      const data = await roomService.denyParticipant(roomId, participantId);
+      return data.room;
+    } catch (error) {
+      return rejectWithValue(errorMessage(error));
+    }
+  },
+);
+
 const slice = createSlice({
   name: "room",
   initialState,
@@ -127,6 +165,7 @@ const slice = createSlice({
     leaveRoom(state) {
       applyRoom(state, null);
       state.connection = "disconnected";
+      clearAdmission(state);
     },
   },
   extraReducers: (builder) => {
@@ -150,6 +189,7 @@ const slice = createSlice({
       })
       .addCase(createRoom.fulfilled, (state, action) => {
         state.status = "succeeded";
+        clearAdmission(state);
         const isScheduledRoom = Boolean(action.meta.arg?.scheduledAt);
 
         if (isScheduledRoom) {
@@ -171,13 +211,16 @@ const slice = createSlice({
       })
       .addCase(fetchRoom.pending, (state) => {
         state.status = "loading";
-        state.connection = "connecting";
+        if (!state.current) {
+          state.connection = "connecting";
+        }
         state.error = null;
       })
       .addCase(fetchRoom.fulfilled, (state, action) => {
         state.status = "succeeded";
         state.connection = "connected";
         applyRoom(state, action.payload);
+        clearAdmission(state);
       })
       .addCase(fetchRoom.rejected, (state, action) => {
         state.status = "failed";
@@ -191,8 +234,7 @@ const slice = createSlice({
       })
       .addCase(joinRoom.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.connection = "connected";
-        applyRoom(state, action.payload);
+        applyJoinResult(state, action.payload);
       })
       .addCase(joinRoom.rejected, (state, action) => {
         state.status = "failed";
@@ -206,8 +248,7 @@ const slice = createSlice({
       })
       .addCase(joinRoomByCode.fulfilled, (state, action) => {
         state.status = "succeeded";
-        state.connection = "connected";
-        applyRoom(state, action.payload);
+        applyJoinResult(state, action.payload);
       })
       .addCase(joinRoomByCode.rejected, (state, action) => {
         state.status = "failed";
@@ -217,6 +258,7 @@ const slice = createSlice({
       .addCase(leaveRoomSession.fulfilled, (state) => {
         applyRoom(state, null);
         state.connection = "disconnected";
+        clearAdmission(state);
       })
       .addCase(updateRoomStatus.pending, (state) => {
         state.status = "loading";
@@ -244,6 +286,40 @@ const slice = createSlice({
         });
       })
       .addCase(updateRoomStatus.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      })
+      .addCase(admitParticipant.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(admitParticipant.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        if (state.current?.id === action.payload.id) {
+          applyRoom(state, action.payload);
+        }
+        state.rooms = state.rooms.map((room) => {
+          return room.id === action.payload.id ? action.payload : room;
+        });
+      })
+      .addCase(admitParticipant.rejected, (state, action) => {
+        state.status = "failed";
+        state.error = action.payload;
+      })
+      .addCase(denyParticipant.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(denyParticipant.fulfilled, (state, action) => {
+        state.status = "succeeded";
+        if (state.current?.id === action.payload.id) {
+          applyRoom(state, action.payload);
+        }
+        state.rooms = state.rooms.map((room) => {
+          return room.id === action.payload.id ? action.payload : room;
+        });
+      })
+      .addCase(denyParticipant.rejected, (state, action) => {
         state.status = "failed";
         state.error = action.payload;
       });

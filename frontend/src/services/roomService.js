@@ -22,6 +22,12 @@ export const roomService = {
   updateRoomStatus(roomId, status) {
     return roomsApi.updateStatus(roomId, status);
   },
+  admitParticipant(roomId, participantId) {
+    return roomsApi.admitParticipant(roomId, participantId);
+  },
+  denyParticipant(roomId, participantId) {
+    return roomsApi.denyParticipant(roomId, participantId);
+  },
   listScreenshots(roomId) {
     return screenshotsApi.list(roomId);
   },
