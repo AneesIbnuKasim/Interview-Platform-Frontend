@@ -227,3 +227,30 @@ export const notificationsApi = {
     );
   },
 };
+
+export const teamInvitesApi = {
+  list(params = {}) {
+    const query = new URLSearchParams();
+
+    if (params.limit) {
+      query.set("limit", String(params.limit));
+    }
+
+    const suffix = query.toString() ? `?${query.toString()}` : "";
+    return apiRequest(`/team/invitations${suffix}`);
+  },
+  send(data) {
+    return apiRequest("/team/invitations", {
+      method: "POST",
+      body: data,
+    });
+  },
+  resend(invitationId) {
+    return apiRequest(
+      `/team/invitations/${encodeURIComponent(invitationId)}/resend`,
+      {
+        method: "POST",
+      },
+    );
+  },
+};

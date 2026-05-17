@@ -42,7 +42,7 @@ export function ParticipantTile({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       className={cn(
-        "relative aspect-video overflow-hidden rounded-xl border bg-gradient-to-br from-secondary to-background",
+        "relative aspect-video overflow-hidden rounded-lg border bg-secondary/55",
         p.speaking
           ? "border-success/60 ring-2 ring-success/40"
           : "border-border",
@@ -75,7 +75,7 @@ export function ParticipantTile({
           <Avatar name={p.name} color={p.color} size={48} />
         </div>
       )}
-      <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 rounded-md bg-background/70 px-1.5 py-0.5 text-[11px] backdrop-blur">
+      <div className="absolute bottom-1.5 left-1.5 flex items-center gap-1.5 rounded-md bg-background/85 px-1.5 py-0.5 text-[11px]">
         <span className="truncate max-w-[100px]">{p.name}</span>
         {isLocal && <span className="text-muted-foreground">you</span>}
         {p.muted ? (
@@ -86,21 +86,16 @@ export function ParticipantTile({
       </div>
       <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
         {p.screenSharing && (
-          <span className="rounded-md bg-primary/20 p-1 text-primary backdrop-blur">
+          <span className="rounded-md bg-primary/20 p-1 text-primary">
             <MonitorUp size={11} />
           </span>
         )}
         {!p.cameraOn && (
-          <span className="rounded-md bg-background/70 p-1 backdrop-blur">
+          <span className="rounded-md bg-background/85 p-1">
             <VideoOff size={11} />
           </span>
         )}
-        <span
-          className={cn(
-            "rounded-md bg-background/70 p-1 backdrop-blur",
-            qualityColor,
-          )}
-        >
+        <span className={cn("rounded-md bg-background/85 p-1", qualityColor)}>
           <Wifi size={11} />
         </span>
       </div>

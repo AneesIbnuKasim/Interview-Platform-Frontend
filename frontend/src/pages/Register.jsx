@@ -32,18 +32,20 @@ export default function RegisterPage() {
   return (
     <div className="grid min-h-screen md:grid-cols-2">
       <BrandPane />
-      <div className="flex items-center justify-center p-6 md:p-10">
+      <div className="flex items-center justify-center bg-background p-6 md:p-10">
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           className="w-full max-w-sm"
         >
-          <h1 className="text-2xl font-semibold">Create your account</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Create your account
+          </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Free during beta. Takes 30 seconds.
           </p>
 
-          <form onSubmit={submit} className="mt-6 space-y-3">
+          <form onSubmit={submit} className="mt-6 space-y-4">
             <div>
               <label className="text-xs text-muted-foreground">Full name</label>
               <Input

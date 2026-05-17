@@ -18,26 +18,30 @@ export default function LoginPage() {
 
 export function BrandPane() {
   return (
-    <div className="relative hidden overflow-hidden md:block">
-      <div
-        className="absolute inset-0"
-        style={{ backgroundImage: "var(--gradient-hero)" }}
-      />
+    <div className="relative hidden overflow-hidden border-r border-border bg-card md:block">
       <div className="relative flex h-full flex-col justify-between p-10">
         <Link to="/" className="flex items-center gap-2 font-semibold">
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-accent">
+          <span className="grid h-8 w-8 place-items-center rounded-md border border-border bg-background">
             <Code2 size={16} />
           </span>
-          <span className="text-gradient text-lg">Pairloop</span>
+          <span className="text-lg">Pairloop</span>
         </Link>
-        <div>
-          <h2 className="text-balance text-4xl font-semibold leading-tight">
+        <div className="max-w-md">
+          <h2 className="text-balance text-3xl font-semibold leading-tight">
             The calm, focused way to interview engineers.
           </h2>
           <p className="mt-3 max-w-md text-muted-foreground">
             Live editor, HD video, and chat — all in one workspace built for
             evaluating real signal.
           </p>
+          <div className="mt-8 grid gap-3 text-sm text-muted-foreground">
+            <div className="rounded-lg border border-border bg-background/45 p-3">
+              Collaborative coding without leaving the room.
+            </div>
+            <div className="rounded-lg border border-border bg-background/45 p-3">
+              Host controls, scheduling, chat, and screen share included.
+            </div>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           © {new Date().getFullYear()} Pairloop, Inc.
@@ -71,19 +75,19 @@ function FormPane() {
   }
 
   return (
-    <div className="flex items-center justify-center p-6 md:p-10">
+    <div className="flex items-center justify-center bg-background p-6 md:p-10">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
         className="w-full max-w-sm"
       >
-        <h1 className="text-2xl font-semibold">Welcome back</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Welcome back</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Log in to continue to your dashboard.
         </p>
 
-        <form onSubmit={submit} className="mt-6 space-y-3">
+        <form onSubmit={submit} className="mt-6 space-y-4">
           <div>
             <label className="text-xs text-muted-foreground">Email</label>
             <Input

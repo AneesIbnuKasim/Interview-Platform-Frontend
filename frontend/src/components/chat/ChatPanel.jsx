@@ -171,7 +171,7 @@ export function ChatPanel({ roomId }) {
               >
                 <Avatar name={m.authorName} size={26} />
                 <div
-                  className={`max-w-[78%] rounded-2xl px-3 py-2 text-sm ${
+                  className={`max-w-[78%] rounded-lg px-3 py-2 text-sm ${
                     mine
                       ? "bg-primary text-primary-foreground"
                       : "bg-secondary text-secondary-foreground"
@@ -200,7 +200,7 @@ export function ChatPanel({ roomId }) {
       </div>
       <form
         onSubmit={submit}
-        className="flex gap-2 border-t border-border/60 p-3"
+        className="flex gap-2 border-t border-border/60 bg-card p-3"
       >
         <Input
           value={text}

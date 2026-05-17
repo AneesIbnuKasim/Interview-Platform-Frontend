@@ -300,12 +300,12 @@ export function CodeEditor({ roomId }) {
         : "vs-dark";
 
   return (
-    <div className="glass flex h-full min-h-0 flex-col overflow-hidden rounded-2xl">
+    <div className="glass flex h-full min-h-0 flex-col overflow-hidden rounded-xl">
       <div className="flex flex-wrap items-center gap-2 border-b border-border/60 px-3 py-2">
         <select
           value={language}
           onChange={(e) => syncLanguage(e.target.value)}
-          className="h-8 rounded-lg border border-border bg-background/60 px-2 text-xs"
+          className="h-8 rounded-md border border-border bg-background/60 px-2 text-xs focus:outline-none focus:ring-2 focus:ring-ring"
         >
           {langs.map((l) => (
             <option key={l} value={l}>
@@ -315,7 +315,7 @@ export function CodeEditor({ roomId }) {
         </select>
         <button
           onClick={copy}
-          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border px-2.5 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
         >
           {copied ? <Check size={12} /> : <Copy size={12} />} {roomId}
         </button>
@@ -445,7 +445,7 @@ function ExecutionOutput({ execution, height, onHeightChange }) {
       </div>
       <pre
         className={
-          "min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-3 pb-3 text-xs leading-5 " +
+          "min-h-0 flex-1 overflow-auto whitespace-pre-wrap px-3 pb-3 font-mono text-xs leading-5 " +
           (failed ? "text-destructive" : "text-foreground")
         }
       >

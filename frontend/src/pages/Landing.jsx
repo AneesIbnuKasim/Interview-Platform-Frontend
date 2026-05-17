@@ -62,23 +62,18 @@ export default function Landing() {
 
 function Hero() {
   return (
-    <section className="relative overflow-hidden">
-      <div
-        className="absolute inset-0 -z-10 opacity-90"
-        style={{ backgroundImage: "var(--gradient-hero)" }}
-      />
-      <div className="mx-auto max-w-7xl px-6 pt-24 pb-20 md:pt-32">
+    <section className="border-b border-border bg-background">
+      <div className="mx-auto max-w-7xl px-6 py-20 md:py-28">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="mx-auto max-w-3xl text-center"
         >
-          <h1 className="mt-6 text-balance text-5xl font-semibold tracking-tight md:text-7xl">
-            Interviews that feel{" "}
-            <span className="text-gradient">like pair programming</span>
+          <h1 className="text-balance text-4xl font-semibold tracking-tight md:text-6xl">
+            Technical interviews that feel like pair programming
           </h1>
-          <p className="mx-auto mt-6 max-w-xl text-pretty text-base text-muted-foreground md:text-lg">
+          <p className="mx-auto mt-5 max-w-2xl text-pretty text-base leading-7 text-muted-foreground md:text-lg">
             Pairloop combines a collaborative editor, video, and chat in one
             calm, focused workspace — so you can evaluate signal, not setup.
           </p>
@@ -104,7 +99,7 @@ function Hero() {
           initial={{ opacity: 0, y: 30, scale: 0.98 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ delay: 0.2, duration: 0.7 }}
-          className="relative mx-auto mt-16 max-w-5xl"
+          className="relative mx-auto mt-14 max-w-5xl"
         >
           <DashboardMock />
         </motion.div>
@@ -115,17 +110,17 @@ function Hero() {
 
 function DashboardMock() {
   return (
-    <div className="glass overflow-hidden rounded-3xl ring-glow">
-      <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">
-        <span className="h-2.5 w-2.5 rounded-full bg-destructive/70" />
-        <span className="h-2.5 w-2.5 rounded-full bg-warning/80" />
-        <span className="h-2.5 w-2.5 rounded-full bg-success/80" />
-        <span className="ml-3 text-xs text-muted-foreground">
-          pairloop · Senior Backend · room-9f8a
+    <div className="glass overflow-hidden rounded-xl">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+        <span className="text-xs font-medium text-muted-foreground">
+          Senior Backend Interview
+        </span>
+        <span className="rounded-md border border-border px-2 py-1 font-mono text-[11px] text-muted-foreground">
+          9F8A
         </span>
       </div>
       <div className="grid grid-cols-1 gap-3 p-3 md:grid-cols-[1.5fr_1fr]">
-        <div className="rounded-xl bg-background/60 p-4 font-mono text-xs leading-relaxed">
+        <div className="rounded-lg border border-border bg-background/65 p-4 font-mono text-xs leading-relaxed">
           <pre className="text-muted-foreground">
             <span className="text-accent">function</span>{" "}
             <span className="text-primary">twoSum</span>(nums, target) {"{"}
@@ -148,7 +143,7 @@ function DashboardMock() {
           {["Aisha", "You", "Marco", "Lin"].map((n, i) => (
             <div
               key={n}
-              className="aspect-video rounded-xl bg-gradient-to-br from-secondary to-background ring-1 ring-border flex items-end p-2 text-xs"
+              className="flex aspect-video items-end rounded-lg border border-border bg-secondary/45 p-2 text-xs"
             >
               <span
                 className={
@@ -170,11 +165,11 @@ function DashboardMock() {
 function Features() {
   return (
     <section id="features" className="mx-auto max-w-7xl px-6 py-20">
-      <div className="mb-12 text-center">
-        <h2 className="text-3xl font-semibold md:text-4xl">
+      <div className="mb-10 max-w-2xl">
+        <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
           Everything you need, nothing you don't
         </h2>
-        <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
+        <p className="mt-3 text-muted-foreground">
           A focused toolkit for technical interviews — designed to disappear so
           the conversation can lead.
         </p>
@@ -188,11 +183,11 @@ function Features() {
             viewport={{ once: true }}
             transition={{ delay: i * 0.05 }}
           >
-            <Card className="group h-full transition hover:-translate-y-0.5 hover:ring-glow">
-              <div className="mb-4 grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-primary/20 to-accent/20 text-primary">
+            <Card className="group h-full transition-colors hover:border-primary/45">
+              <div className="mb-4 grid h-9 w-9 place-items-center rounded-md border border-border bg-secondary text-primary">
                 <f.icon size={18} />
               </div>
-              <h3 className="text-lg font-semibold">{f.title}</h3>
+              <h3 className="text-base font-semibold">{f.title}</h3>
               <p className="mt-1.5 text-sm text-muted-foreground">{f.desc}</p>
             </Card>
           </motion.div>
@@ -222,16 +217,18 @@ function HowItWorks() {
   ];
   return (
     <section id="how" className="mx-auto max-w-7xl px-6 py-20">
-      <div className="mb-12 text-center">
-        <h2 className="text-3xl font-semibold md:text-4xl">How it works</h2>
+      <div className="mb-10 max-w-2xl">
+        <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
+          How it works
+        </h2>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {steps.map((s) => (
           <Card key={s.n} className="relative overflow-hidden">
-            <span className="absolute -right-4 -top-6 text-7xl font-bold text-primary/10">
+            <span className="mb-5 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border text-xs text-muted-foreground">
               {s.n}
             </span>
-            <h3 className="text-lg font-semibold">{s.t}</h3>
+            <h3 className="text-base font-semibold">{s.t}</h3>
             <p className="mt-2 text-sm text-muted-foreground">{s.d}</p>
           </Card>
         ))}
@@ -241,16 +238,18 @@ function HowItWorks() {
 }
 
 function CTA() {
+  const user = JSON.parse(localStorage.getItem("pairloop.user"))?.id;
+
   return (
     <section className="mx-auto max-w-5xl px-6 py-16">
-      <Card className="ring-glow flex flex-col items-center gap-5 rounded-3xl p-10 text-center">
-        <h2 className="text-3xl font-semibold md:text-4xl">
+      <Card className="flex flex-col items-center gap-4 rounded-xl p-8 text-center md:p-10">
+        <h2 className="text-2xl font-semibold tracking-tight md:text-3xl">
           Ready to run better interviews?
         </h2>
         <p className="max-w-lg text-muted-foreground">
           Free during beta. No credit card. Cancel anytime.
         </p>
-        <Link to="/register">
+        <Link to={user ? "/dashboard" : "/register"}>
           <Button size="lg">
             Create your first room <ArrowRight size={16} />
           </Button>

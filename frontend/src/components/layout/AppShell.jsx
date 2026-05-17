@@ -112,19 +112,19 @@ export function AppShell({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-background">
       <aside
         className={cn(
-          "hidden border-r border-border bg-background/40 backdrop-blur md:flex md:flex-col transition-all",
+          "hidden border-r border-border bg-card md:flex md:flex-col transition-all",
           collapsed ? "w-16" : "w-60",
         )}
       >
-        <div className="flex h-16 items-center justify-between px-4">
+        <div className="flex h-16 items-center justify-between border-b border-border px-4">
           <Link to="/" className="flex items-center gap-2 font-semibold">
-            <span className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-primary to-accent">
+            <span className="grid h-8 w-8 place-items-center rounded-md border border-border bg-background">
               <Code2 size={16} />
             </span>
-            {!collapsed && <span className="text-gradient">Pairloop</span>}
+            {!collapsed && <span>Pairloop</span>}
           </Link>
           <button
             onClick={() => setCollapsed((c) => !c)}
@@ -149,7 +149,7 @@ export function AppShell({ children }) {
                 key={item.label}
                 to={item.to}
                 className={cn(
-                  "group flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-secondary/60 hover:text-foreground",
+                  "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-secondary/60 hover:text-foreground",
                   isActive
                     ? "bg-secondary text-foreground"
                     : "text-muted-foreground",
@@ -164,7 +164,7 @@ export function AppShell({ children }) {
         <div className="mt-auto p-3">
           <button
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
           >
             <LogOut size={16} />
             {!collapsed && "Log out"}
@@ -173,7 +173,7 @@ export function AppShell({ children }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/60 px-4 backdrop-blur md:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-border bg-background/95 px-4 md:px-6">
           <form className="relative w-full max-w-sm" onSubmit={submitSearch}>
             <Search
               size={14}
@@ -190,7 +190,7 @@ export function AppShell({ children }) {
             <div className="relative">
               <button
                 onClick={toggleNotifications}
-                className="relative grid h-9 w-9 place-items-center rounded-xl border border-border text-muted-foreground hover:text-foreground"
+                className="relative grid h-9 w-9 place-items-center rounded-lg border border-border text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground"
               >
                 <Bell size={16} />
                 {unreadCount > 0 && (
@@ -200,18 +200,14 @@ export function AppShell({ children }) {
                 )}
               </button>
               {notificationsOpen && (
-                <div className="glass absolute right-0 mt-2 w-80 rounded-xl p-2 text-sm">
+                <div className="glass absolute right-0 mt-2 w-80 rounded-lg p-2 text-sm">
                   <div className="flex items-center justify-between px-2 py-1.5">
                     <span className="text-xs font-medium text-muted-foreground">
                       Notifications
                     </span>
-                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <CheckCheck size={12} />
-                      Seen
-                    </span>
                   </div>
                   {recentNotifications.length === 0 ? (
-                    <div className="px-2 py-3 text-xs text-muted-foreground">
+                    <div className="px-2 py-4 text-xs text-muted-foreground">
                       No notifications yet.
                     </div>
                   ) : (
@@ -225,7 +221,7 @@ export function AppShell({ children }) {
                         }
                         onClick={() => setNotificationsOpen(false)}
                         className={cn(
-                          "block rounded-lg px-2 py-2 hover:bg-secondary/60",
+                          "block rounded-md px-2 py-2 transition-colors hover:bg-secondary/60",
                           !notification.read && "bg-primary/10",
                         )}
                       >
@@ -244,7 +240,7 @@ export function AppShell({ children }) {
             <div className="relative">
               <button
                 onClick={() => setMenuOpen((o) => !o)}
-                className="flex items-center gap-2 rounded-xl border border-border px-2 py-1"
+                className="flex items-center gap-2 rounded-lg border border-border px-2 py-1 transition-colors hover:bg-secondary/60"
               >
                 <Avatar name={user?.name ?? "Guest"} size={28} />
                 <span className="hidden text-sm md:inline">
@@ -252,24 +248,24 @@ export function AppShell({ children }) {
                 </span>
               </button>
               {menuOpen && (
-                <div className="glass absolute right-0 mt-2 w-48 rounded-xl p-1 text-sm">
+                <div className="glass absolute right-0 mt-2 w-48 rounded-lg p-1 text-sm">
                   <Link
                     to="/profile"
                     onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2 hover:bg-secondary/60"
+                    className="block rounded-md px-3 py-2 hover:bg-secondary/60"
                   >
                     Profile
                   </Link>
                   <Link
                     to="/dashboard"
                     onClick={() => setMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2 hover:bg-secondary/60"
+                    className="block rounded-md px-3 py-2 hover:bg-secondary/60"
                   >
                     Dashboard
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="block w-full rounded-lg px-3 py-2 text-left text-destructive hover:bg-secondary/60"
+                    className="block w-full rounded-md px-3 py-2 text-left text-destructive hover:bg-secondary/60"
                   >
                     Log out
                   </button>
@@ -278,7 +274,7 @@ export function AppShell({ children }) {
             </div>
           </div>
         </header>
-        <main className="min-w-0 flex-1 p-4 md:p-8">{children}</main>
+        <main className="min-w-0 flex-1 p-4 md:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

@@ -5,10 +5,10 @@ export function Footer() {
     <footer className="mt-24 border-t border-border/60 py-10 text-sm text-muted-foreground">
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 md:flex-row">
         <div className="flex items-center gap-2">
-          <span className="grid h-7 w-7 place-items-center rounded-md bg-gradient-to-br from-primary to-accent">
+          <span className="grid h-7 w-7 place-items-center rounded-md border border-border bg-card text-foreground">
             <Code2 size={14} />
           </span>
-          <span className="text-gradient font-semibold">Pairloop</span>
+          <span className="font-semibold text-foreground">Pairloop</span>
           <span>© {new Date().getFullYear()}</span>
         </div>
         <div className="flex gap-6">

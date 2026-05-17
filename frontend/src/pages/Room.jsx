@@ -817,7 +817,7 @@ export default function RoomPage() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="hidden w-[340px] flex-col gap-3 lg:flex"
+              className="fixed inset-x-3 bottom-20 top-20 z-20 flex w-auto flex-col gap-3 overflow-hidden lg:static lg:inset-auto lg:w-[340px] lg:overflow-visible"
             >
               {ui.participantsOpen && (
                 <div className="flex flex-col gap-3">
@@ -832,7 +832,7 @@ export default function RoomPage() {
                       onDeny={denyRequest}
                     />
                   )}
-                  <div className="glass rounded-2xl p-3">
+                  <div className="glass rounded-xl p-3">
                     <div className="mb-2 flex items-center justify-between">
                       <h3 className="text-sm font-semibold">Participants</h3>
                       <span className="text-xs text-muted-foreground">
@@ -852,7 +852,7 @@ export default function RoomPage() {
                 </div>
               )}
               {ui.chatOpen && (
-                <div className="glass min-h-0 flex-1 overflow-hidden rounded-2xl">
+                <div className="glass min-h-0 flex-1 overflow-hidden rounded-xl">
                   <ChatPanel roomId={roomId} />
                 </div>
               )}
@@ -896,7 +896,7 @@ function WaitingForAdmission({
         onLeave={onLeave}
       />
       <main className="grid min-h-0 flex-1 place-items-center px-4">
-        <div className="glass w-full max-w-md rounded-2xl p-5">
+        <div className="glass w-full max-w-md rounded-xl p-5">
           <div className="mb-4 flex items-center gap-3">
             <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
               <ShieldCheck size={20} />
@@ -908,7 +908,7 @@ function WaitingForAdmission({
               </p>
             </div>
           </div>
-          <div className="mb-4 rounded-xl border border-border/70 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
+          <div className="mb-4 rounded-lg border border-border/70 bg-background/40 px-3 py-2 text-xs text-muted-foreground">
             Room {roomCode}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -934,7 +934,7 @@ function WaitingForAdmission({
 
 function SharingEditorBar({ onShowScreen }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl border border-primary/30 bg-primary/10 px-3 py-2 text-xs">
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-xs">
       <span className="inline-flex items-center gap-2 text-primary">
         <ScreenShare size={14} />
         Your screen is visible to the interviewer
@@ -960,7 +960,7 @@ function ScreenShareStage({ presenter, stream, isLocal, onShowEditor }) {
   }, [stream]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-black">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-black">
       <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-sm text-white">
         <span className="inline-flex items-center gap-2">
           <ScreenShare size={16} />
@@ -1005,7 +1005,7 @@ function HostControls({
   const isEnded = status === "ended" || status === "archived";
 
   return (
-    <div className="glass rounded-2xl p-3">
+    <div className="glass rounded-xl p-3">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="inline-flex items-center gap-2 text-sm font-semibold">
           <ShieldCheck size={15} />
@@ -1036,7 +1036,7 @@ function HostControls({
           {pendingRequests.map((participant) => (
             <div
               key={participant.id}
-              className="rounded-xl border border-border/70 bg-background/40 p-2"
+              className="rounded-lg border border-border/70 bg-background/40 p-2"
             >
               <div className="mb-2 min-w-0">
                 <div className="truncate text-sm font-medium">
@@ -1082,7 +1082,7 @@ function TopBar({ title, elapsed, status, error, onLeave }) {
   return (
     <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
       <div className="flex items-center gap-3 min-w-0">
-        <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-primary to-accent text-sm font-bold">
+        <span className="grid h-9 w-9 place-items-center rounded-lg border border-border bg-card text-sm font-bold">
           P
         </span>
         <div className="min-w-0">
@@ -1096,7 +1096,7 @@ function TopBar({ title, elapsed, status, error, onLeave }) {
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <span className="rounded-lg bg-secondary px-3 py-1.5 font-mono text-sm tabular-nums">
+        <span className="rounded-md border border-border bg-secondary px-3 py-1.5 font-mono text-sm tabular-nums">
           {elapsed}
         </span>
         <Button variant="danger" size="sm" onClick={onLeave}>
@@ -1110,7 +1110,7 @@ function TopBar({ title, elapsed, status, error, onLeave }) {
 function BottomBar(props) {
   return (
     <div className="border-t border-border/60 p-3">
-      <div className="glass mx-auto flex w-fit items-center gap-2 rounded-2xl p-2">
+      <div className="glass mx-auto flex w-fit items-center gap-1.5 rounded-xl p-1.5">
         <Ctrl
           on={props.mic}
           onClick={props.onMic}
@@ -1136,14 +1136,14 @@ function BottomBar(props) {
         <span className="mx-1 h-6 w-px bg-border" />
         <button
           onClick={props.onPeople}
-          className="grid h-11 w-11 place-items-center rounded-xl hover:bg-secondary"
+          className="grid h-10 w-10 place-items-center rounded-lg hover:bg-secondary"
           aria-label="People"
         >
           <Users size={18} />
         </button>
         <button
           onClick={props.onChat}
-          className="relative grid h-11 w-11 place-items-center rounded-xl hover:bg-secondary"
+          className="relative grid h-10 w-10 place-items-center rounded-lg hover:bg-secondary"
           aria-label="Chat"
         >
           <MessageSquare size={18} />
@@ -1156,7 +1156,7 @@ function BottomBar(props) {
         <span className="mx-1 h-6 w-px bg-border" />
         <button
           onClick={props.onLeave}
-          className="grid h-11 w-11 place-items-center rounded-xl bg-destructive text-destructive-foreground hover:brightness-110"
+          className="grid h-10 w-10 place-items-center rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90"
           aria-label="Leave"
         >
           <PhoneOff size={18} />
@@ -1178,7 +1178,7 @@ function Ctrl({ on, onClick, OnIcon, OffIcon, label, tone = "default" }) {
       onClick={onClick}
       aria-label={label}
       className={cn(
-        "grid h-11 w-11 place-items-center rounded-xl transition",
+        "grid h-10 w-10 place-items-center rounded-lg transition-colors",
         cls,
       )}
     >

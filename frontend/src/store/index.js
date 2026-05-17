@@ -5,6 +5,7 @@ import editorReducer from "@/features/editor/editorSlice";
 import participantsReducer from "@/features/participants/participantsSlice";
 import chatReducer from "@/features/chat/chatSlice";
 import notificationsReducer from "@/features/notifications/notificationsSlice";
+import teamInvitesReducer from "@/features/teamInvites/teamInvitesSlice";
 import uiReducer from "@/features/ui/uiSlice";
 
 export const store = configureStore({
@@ -15,6 +16,7 @@ export const store = configureStore({
     participants: participantsReducer,
     chat: chatReducer,
     notifications: notificationsReducer,
+    teamInvites: teamInvitesReducer,
     ui: uiReducer,
   },
 });
