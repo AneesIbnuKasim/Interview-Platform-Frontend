@@ -197,10 +197,12 @@ export default function Dashboard() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const currentUser = useAppSelector((state) => state.auth.user);
   const { error, rooms, status } = useAppSelector((state) => state.room);
   const teamInvites = useAppSelector((state) => state.teamInvites);
   const [join, setJoin] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRoomId, setInviteRoomId] = useState("");
   const [copiedRoomId, setCopiedRoomId] = useState(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [scheduledRoom, setScheduledRoom] = useState(null);
@@ -315,10 +317,15 @@ export default function Dashboard() {
 
   async function inviteTeammate(event) {
     event.preventDefault();
-    if (!inviteEmail.trim()) return;
+    if (!inviteEmail.trim() || !inviteRoomId) return;
 
     try {
-      await dispatch(sendTeamInvite({ email: inviteEmail.trim() })).unwrap();
+      await dispatch(
+        sendTeamInvite({
+          email: inviteEmail.trim(),
+          roomId: inviteRoomId,
+        }),
+      ).unwrap();
       setInviteEmail("");
     } catch {
       dispatch(fetchTeamInvites());
@@ -380,6 +387,40 @@ export default function Dashboard() {
   }, [query, rooms, statusFilter]);
 
   const teamMembers = useMemo(() => collectTeamMembers(rooms), [rooms]);
+  const inviteRooms = useMemo(() => {
+    return rooms
+      .filter((room) => {
+        return room.status !== "archived" && room.ownerId === currentUser?.id;
+      })
+      .sort((a, b) => {
+        const rank = { active: 0, waiting: 1, ended: 2 };
+        const statusDelta = (rank[a.status] ?? 3) - (rank[b.status] ?? 3);
+
+        if (statusDelta !== 0) return statusDelta;
+
+        const dateA = new Date(
+          a.scheduledAt || a.updatedAt || a.createdAt || 0,
+        ).getTime();
+        const dateB = new Date(
+          b.scheduledAt || b.updatedAt || b.createdAt || 0,
+        ).getTime();
+
+        return dateB - dateA;
+      });
+  }, [currentUser?.id, rooms]);
+
+  useEffect(() => {
+    if (!inviteRoomId) return;
+
+    const roomStillAvailable = inviteRooms.some(
+      (room) => room.id === inviteRoomId,
+    );
+
+    if (!roomStillAvailable) {
+      setInviteRoomId("");
+    }
+  }, [inviteRoomId, inviteRooms]);
+
   const upcomingRooms = rooms
     .filter((room) => room.scheduledAt && room.status !== "archived")
     .sort((a, b) => new Date(a.scheduledAt) - new Date(b.scheduledAt))
@@ -482,6 +523,8 @@ export default function Dashboard() {
             members={teamMembers}
             invites={teamInvites.items}
             inviteEmail={inviteEmail}
+            inviteRoomId={inviteRoomId}
+            inviteRooms={inviteRooms}
             inviteError={teamInvites.error}
             inviteStatus={teamInvites.status}
             lastSentInvite={teamInvites.lastSent}
@@ -489,6 +532,7 @@ export default function Dashboard() {
             resendingInviteId={teamInvites.resendingId}
             onClearInviteFeedback={clearInviteFeedback}
             onInviteEmailChange={setInviteEmail}
+            onInviteRoomChange={setInviteRoomId}
             onInvite={inviteTeammate}
             onResendInvite={resendInvite}
           />
@@ -698,6 +742,8 @@ function TeamView({
   members,
   invites,
   inviteEmail,
+  inviteRoomId,
+  inviteRooms,
   inviteError,
   inviteStatus,
   lastSentInvite,
@@ -705,6 +751,7 @@ function TeamView({
   sendingInvite,
   onClearInviteFeedback,
   onInviteEmailChange,
+  onInviteRoomChange,
   onInvite,
   onResendInvite,
 }) {
@@ -753,6 +800,27 @@ function TeamView({
           Send a quick email invite to bring another interviewer in.
         </p>
         <form className="mt-4 space-y-3" onSubmit={onInvite}>
+          <select
+            value={inviteRoomId}
+            onChange={(event) => {
+              onClearInviteFeedback();
+              onInviteRoomChange(event.target.value);
+            }}
+            className="h-10 w-full rounded-lg border border-border bg-background/60 px-3 text-sm text-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-ring"
+            disabled={inviteRooms.length === 0}
+            required
+          >
+            <option value="">
+              {inviteRooms.length === 0
+                ? "No owned rooms available"
+                : "Select interview room"}
+            </option>
+            {inviteRooms.map((room) => (
+              <option key={room.id} value={room.id}>
+                {room.title} · {room.code || room.id}
+              </option>
+            ))}
+          </select>
           <Input
             type="email"
             value={inviteEmail}
@@ -778,7 +846,12 @@ function TeamView({
           <Button
             type="submit"
             className="w-full"
-            disabled={sendingInvite || !inviteEmail.trim()}
+            disabled={
+              sendingInvite ||
+              inviteRooms.length === 0 ||
+              !inviteEmail.trim() ||
+              !inviteRoomId
+            }
           >
             <Mail size={15} />
             {sendingInvite ? "Sending..." : "Send invite"}
@@ -811,7 +884,11 @@ function TeamView({
                         {invitation.inviteeEmail}
                       </div>
                       <div className="mt-1 text-xs text-muted-foreground">
-                        {formatInviteDate(invitation.sentAt)}
+                        {invitation.roomTitle || "Interview room"} ·{" "}
+                        {invitation.roomCode || invitation.roomId}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Sent {formatInviteDate(invitation.sentAt)}
                       </div>
                     </div>
                     <span

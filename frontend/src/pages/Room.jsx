@@ -525,7 +525,6 @@ export default function RoomPage() {
       navigate("/dashboard");
     } catch {
       leavingRef.current = false;
-      // Error is rendered from Redux state.
     }
   }
 
