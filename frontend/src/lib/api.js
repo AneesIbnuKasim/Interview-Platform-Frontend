@@ -196,6 +196,12 @@ export const editorApi = {
       body: data,
     });
   },
+  runPlayground(data) {
+    return apiRequest("/editor/run", {
+      method: "POST",
+      body: data,
+    });
+  },
 };
 
 export const notificationsApi = {

@@ -5,6 +5,7 @@ import Landing from "@/pages/Landing";
 import Login from "@/pages/Login";
 import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
+import Playground from "@/pages/Playground";
 import Profile from "@/pages/Profile";
 import Room from "@/pages/Room";
 import NotFound from "@/pages/NotFound";
@@ -33,6 +34,14 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Dashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/playground"
+        element={
+          <ProtectedRoute>
+            <Playground />
           </ProtectedRoute>
         }
       />

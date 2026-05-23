@@ -38,6 +38,7 @@ const nav = [
     label: "Interviews",
     icon: Calendar,
   },
+  { to: "/playground", label: "Playground", icon: Code2 },
   { to: "/dashboard?view=team", view: "team", label: "Team", icon: Users },
   { to: "/profile", label: "Settings", icon: Settings },
 ];
@@ -139,8 +140,8 @@ export function AppShell({ children }) {
         <nav className="flex flex-col gap-1 p-3">
           {nav.map((item) => {
             const isActive =
-              item.to === "/profile"
-                ? location.pathname === "/profile"
+              item.to === "/profile" || item.to === "/playground"
+                ? location.pathname === item.to
                 : location.pathname === "/dashboard" &&
                   dashboardView === item.view;
 
@@ -255,6 +256,13 @@ export function AppShell({ children }) {
                     className="block rounded-md px-3 py-2 hover:bg-secondary/60"
                   >
                     Profile
+                  </Link>
+                  <Link
+                    to="/playground"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-md px-3 py-2 hover:bg-secondary/60"
+                  >
+                    Playground
                   </Link>
                   <Link
                     to="/dashboard"
