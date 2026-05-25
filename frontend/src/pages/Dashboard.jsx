@@ -329,7 +329,6 @@ export default function Dashboard() {
       setInviteEmail("");
     } catch {
       dispatch(fetchTeamInvites());
-      // Error is rendered from Redux state.
     }
   }
 
@@ -354,7 +353,6 @@ export default function Dashboard() {
         updateRoomStatus({ roomId: room.id, status: "archived" }),
       ).unwrap();
     } catch {
-      // Error is rendered from Redux state.
     }
   }
 
@@ -390,10 +388,10 @@ export default function Dashboard() {
   const inviteRooms = useMemo(() => {
     return rooms
       .filter((room) => {
-        return room.status !== "archived" && room.ownerId === currentUser?.id;
+        return room.status !== "archived" && room.status !== "ended" && room.ownerId === currentUser?.id;
       })
       .sort((a, b) => {
-        const rank = { active: 0, waiting: 1, ended: 2 };
+        const rank = { active: 0, waiting: 1 };
         const statusDelta = (rank[a.status] ?? 3) - (rank[b.status] ?? 3);
 
         if (statusDelta !== 0) return statusDelta;

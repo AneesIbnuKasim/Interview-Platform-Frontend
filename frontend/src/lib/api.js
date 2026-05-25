@@ -202,6 +202,32 @@ export const editorApi = {
       body: data,
     });
   },
+  listPlaygroundFiles() {
+    return apiRequest("/editor/playground-files");
+  },
+  createPlaygroundFile(data) {
+    return apiRequest("/editor/playground-files", {
+      method: "POST",
+      body: data,
+    });
+  },
+  updatePlaygroundFile(fileId, data) {
+    return apiRequest(
+      `/editor/playground-files/${encodeURIComponent(fileId)}`,
+      {
+        method: "PATCH",
+        body: data,
+      },
+    );
+  },
+  openPlaygroundFile(fileId) {
+    return apiRequest(
+      `/editor/playground-files/${encodeURIComponent(fileId)}/open`,
+      {
+        method: "PATCH",
+      },
+    );
+  },
 };
 
 export const notificationsApi = {
