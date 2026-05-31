@@ -1,11 +1,25 @@
 import { io } from "socket.io-client";
 import { getAccessToken } from "@/lib/authStorage";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim() !== "") {
+    return envUrl;
+  }
+  if (import.meta.env.DEV) {
+    return "http://localhost:5001/api";
+  }
+  return "/api";
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const SOCKET_URL =
   import.meta.env.VITE_SOCKET_URL || API_BASE_URL.replace(/\/api\/?$/, "");
+
+if (import.meta.env.DEV) {
+  console.log(`[Socket] Using socket URL: ${SOCKET_URL}`);
+}
 
 export const socketEvents = {
   ROOM_JOIN: "room:join",

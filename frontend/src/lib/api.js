@@ -5,8 +5,28 @@ import {
   setAuthSession,
 } from "@/lib/authStorage";
 
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+const getApiBaseUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl && envUrl.trim() !== "") {
+    return envUrl;
+  }
+
+  // Fallback for development
+  if (import.meta.env.DEV) {
+    return "http://localhost:5001/api";
+  }
+
+  // In production, if VITE_API_URL is missing, we might want to log a warning
+  // or use a relative path if the API is served from the same domain.
+  console.warn("VITE_API_URL is not defined in production environment!");
+  return "/api"; // Try relative path as a last resort
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+if (import.meta.env.DEV) {
+  console.log(`[API] Using base URL: ${API_BASE_URL}`);
+}
 
 async function parseResponse(response) {
   const text = await response.text();
