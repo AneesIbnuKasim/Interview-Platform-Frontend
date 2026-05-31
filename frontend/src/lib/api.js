@@ -7,13 +7,6 @@ import {
 
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  
-  // Debug log for all environments (we can remove this once fixed)
-  console.log("[API Configuration] Mode:", import.meta.env.MODE);
-  console.log("[API Configuration] VITE_API_URL from env:", envUrl);
-  console.log("[API Configuration] Available VITE keys:", 
-    Object.keys(import.meta.env).filter(key => key.startsWith("VITE_"))
-  );
 
   if (envUrl && envUrl.trim() !== "") {
     return envUrl;
@@ -24,10 +17,8 @@ const getApiBaseUrl = () => {
     return "http://localhost:5001/api";
   }
 
-  // In production, if VITE_API_URL is missing, we might want to log a warning
-  // or use a relative path if the API is served from the same domain.
-  console.warn("VITE_API_URL is not defined in production environment!");
-  return "/api"; // Try relative path as a last resort
+  // In production, if VITE_API_URL is missing, we use a relative path
+  return "/api"; 
 };
 
 const API_BASE_URL = getApiBaseUrl();
