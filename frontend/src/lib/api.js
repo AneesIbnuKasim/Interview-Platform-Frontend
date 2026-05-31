@@ -7,6 +7,14 @@ import {
 
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
+  
+  // Debug log for all environments (we can remove this once fixed)
+  console.log("[API Configuration] Mode:", import.meta.env.MODE);
+  console.log("[API Configuration] VITE_API_URL from env:", envUrl);
+  console.log("[API Configuration] Available VITE keys:", 
+    Object.keys(import.meta.env).filter(key => key.startsWith("VITE_"))
+  );
+
   if (envUrl && envUrl.trim() !== "") {
     return envUrl;
   }
