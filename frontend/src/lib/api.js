@@ -7,6 +7,7 @@ import {
 
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
+  console.log('envURL:', envUrl)
 
   if (envUrl && envUrl.trim() !== "") {
     return envUrl;
