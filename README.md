@@ -7,7 +7,7 @@ It combines a modern React frontend with a scalable Express/MongoDB backend, Soc
 ## Live Demo
 
 - Frontend: https://interview-platform-frontend.pages.dev/
-- Backend API: https://pairloop-api.onrender.com/api
+- Backend API: https://interview-platform-server-xgwn.onrender.com
 
 > Note: The backend may take a few seconds to wake up if hosted on a free Render instance.
 
