@@ -21,6 +21,8 @@ const getApiBaseUrl = () => {
   // In production, if VITE_API_URL is missing, we use a relative path
   return "localhost/api"; 
 };
+console.log(import.meta.env.VITE_API_URL);
+console.log(import.meta.env.VITE_SOCKET_URL);
 
 const API_BASE_URL = getApiBaseUrl();
 
