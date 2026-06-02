@@ -100,13 +100,18 @@ export default function ProfilePage() {
 
   const displayName = user?.name || "Guest User";
   const displayEmail = user?.email || "guest@pairloop.dev";
+  const baseUrl = import.meta.env.VITE_API_URL;
+
+  useEffect(() => {
+    console.log('user:', user)
+  }, [user])
 
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <Avatar name={displayName} src={user?.avatar?.url} size={64} />
+            <Avatar name={displayName} src={`${baseUrl}user?.avatar?.url`} size={64} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
