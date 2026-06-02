@@ -7,7 +7,6 @@ import {
 
 const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
-  console.log('envURL:', envUrl)
 
   if (envUrl && envUrl.trim() !== "") {
     return envUrl;
@@ -19,10 +18,8 @@ const getApiBaseUrl = () => {
   }
 
   // In production, if VITE_API_URL is missing, we use a relative path
-  return "localhost/api"; 
+  return "/api";
 };
-console.log(import.meta.env.VITE_API_URL);
-console.log(import.meta.env.VITE_SOCKET_URL);
 
 const API_BASE_URL = getApiBaseUrl();
 
@@ -134,6 +131,15 @@ export const usersApi = {
     return apiRequest("/users/me", {
       method: "PATCH",
       body: data,
+    });
+  },
+  updateAvatar(file) {
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    return apiRequest("/users/me/avatar", {
+      method: "PATCH",
+      body: formData,
     });
   },
 };

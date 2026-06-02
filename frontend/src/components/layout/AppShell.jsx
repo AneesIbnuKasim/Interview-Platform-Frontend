@@ -243,7 +243,11 @@ export function AppShell({ children }) {
                 onClick={() => setMenuOpen((o) => !o)}
                 className="flex items-center gap-2 rounded-lg border border-border px-2 py-1 transition-colors hover:bg-secondary/60"
               >
-                <Avatar name={user?.name ?? "Guest"} size={28} />
+                <Avatar
+                  name={user?.name ?? "Guest"}
+                  src={user?.avatar?.url}
+                  size={28}
+                />
                 <span className="hidden text-sm md:inline">
                   {user?.name ?? "Guest"}
                 </span>

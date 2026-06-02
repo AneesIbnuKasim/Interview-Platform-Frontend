@@ -1,12 +1,23 @@
 import { cn } from "@/lib/cn";
 
-export function Avatar({ name, color, size = 36, className }) {
-  const initials = name
+function resolveMediaUrl(src) {
+  if (!src || src.startsWith("http") || src.startsWith("data:")) return src;
+
+  const origin =
+    import.meta.env.VITE_SOCKET_URL ||
+    import.meta.env.VITE_API_URL?.replace(/\/api\/?$/, "");
+
+  return origin ? `${origin.replace(/\/$/, "")}${src}` : src;
+}
+
+export function Avatar({ name, color, size = 36, src, className }) {
+  const initials = (name || "User")
     .split(" ")
     .slice(0, 2)
     .map((item) => item[0])
     .join("")
     .toUpperCase();
+  const imageUrl = resolveMediaUrl(src);
 
   return (
     <div
@@ -21,7 +32,15 @@ export function Avatar({ name, color, size = 36, className }) {
         background: color ?? undefined,
       }}
     >
-      {initials}
+      {imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={name ? `${name} profile` : "Profile"}
+          className="h-full w-full rounded-full object-cover"
+        />
+      ) : (
+        initials
+      )}
     </div>
   );
 }

@@ -87,6 +87,19 @@ export const updateCurrentUser = createAsyncThunk(
   },
 );
 
+export const updateCurrentUserAvatar = createAsyncThunk(
+  "auth/updateCurrentUserAvatar",
+  async (file, { rejectWithValue }) => {
+    try {
+      const data = await userService.updateAvatar(file);
+      if (data?.user) setAuthSession({ user: data.user });
+      return data?.user;
+    } catch (error) {
+      return rejectWithValue(authError(error));
+    }
+  },
+);
+
 const slice = createSlice({
   name: "auth",
   initialState,
@@ -159,6 +172,20 @@ const slice = createSlice({
         state.initialized = true;
       })
       .addCase(updateCurrentUser.rejected, (state, action) => {
+        state.status = "authenticated";
+        state.error = action.payload;
+      })
+      .addCase(updateCurrentUserAvatar.pending, (state) => {
+        state.status = "loading";
+        state.error = null;
+      })
+      .addCase(updateCurrentUserAvatar.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.status = "authenticated";
+        state.error = null;
+        state.initialized = true;
+      })
+      .addCase(updateCurrentUserAvatar.rejected, (state, action) => {
         state.status = "authenticated";
         state.error = action.payload;
       });

@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Camera, CheckCircle2, Loader2 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/common/Card";
 import { Button } from "@/components/common/Button";
 import { Input } from "@/components/common/Input";
 import { Avatar } from "@/components/common/Avatar";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import { updateCurrentUser } from "@/features/auth/authSlice";
+import {
+  updateCurrentUser,
+  updateCurrentUserAvatar,
+} from "@/features/auth/authSlice";
 
 const defaultPreferences = {
   emailNotifications: true,
@@ -30,6 +33,8 @@ export default function ProfilePage() {
   const { user, status, error } = useAppSelector((state) => state.auth);
   const [form, setForm] = useState(() => buildForm(user));
   const [saved, setSaved] = useState(false);
+  const [avatarSaved, setAvatarSaved] = useState(false);
+  const fileInputRef = useRef(null);
   const saving = status === "loading";
 
   useEffect(() => {
@@ -76,6 +81,23 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleAvatarChange(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) return;
+
+    setSaved(false);
+    setAvatarSaved(false);
+
+    try {
+      await dispatch(updateCurrentUserAvatar(file)).unwrap();
+      setAvatarSaved(true);
+    } catch {
+      // Redux renders the error state.
+    }
+  }
+
   const displayName = user?.name || "Guest User";
   const displayEmail = user?.email || "guest@pairloop.dev";
 
@@ -83,12 +105,42 @@ export default function ProfilePage() {
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center gap-4">
-          <Avatar name={displayName} size={64} />
+          <div className="relative shrink-0">
+            <Avatar name={displayName} src={user?.avatar?.url} size={64} />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={saving}
+              className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full border border-border bg-card text-muted-foreground shadow-sm transition-colors hover:bg-secondary hover:text-foreground disabled:pointer-events-none disabled:opacity-50"
+              aria-label="Upload profile photo"
+            >
+              {saving ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Camera size={14} />
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+          </div>
           <div className="min-w-0">
             <h1 className="truncate text-2xl font-semibold">{displayName}</h1>
             <p className="truncate text-sm text-muted-foreground">
               {displayEmail}
             </p>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={saving}
+              className="mt-1 text-xs font-medium text-primary transition-colors hover:text-primary/80 disabled:pointer-events-none disabled:opacity-50"
+            >
+              Change profile photo
+            </button>
           </div>
         </div>
 
@@ -105,6 +157,12 @@ export default function ProfilePage() {
                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-success/10 px-2.5 py-1 text-xs text-success">
                   <CheckCircle2 size={13} />
                   Saved
+                </span>
+              )}
+              {avatarSaved && (
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-success/10 px-2.5 py-1 text-xs text-success">
+                  <CheckCircle2 size={13} />
+                  Photo updated
                 </span>
               )}
             </div>
