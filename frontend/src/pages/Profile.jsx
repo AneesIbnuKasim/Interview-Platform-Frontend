@@ -100,18 +100,17 @@ export default function ProfilePage() {
 
   const displayName = user?.name || "Guest User";
   const displayEmail = user?.email || "guest@pairloop.dev";
-  const baseUrl = import.meta.env.VITE_API_URL;
-
-  useEffect(() => {
-    console.log('user:', user)
-  }, [user])
+  const imageUrl = `${import.meta.env.VITE_IMAGE_URL}${user?.avatar?.url}`;
+  useEffect(()=>{
+    console.log('imageBaseUrl::',imageUrl)
+  },[user?.avatar?.url])
 
   return (
     <AppShell>
       <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center gap-4">
           <div className="relative shrink-0">
-            <Avatar name={displayName} src={`${baseUrl}user?.avatar?.url`} size={64} />
+            <Avatar name={displayName} src={imageUrl} size={64} />
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
@@ -238,14 +237,14 @@ export default function ProfilePage() {
                   updatePreference("emailNotifications", value)
                 }
               />
-              <PreferenceToggle
+              {/* <PreferenceToggle
                 title="Auto-record sessions"
                 description="Save a transcript of each interview."
                 checked={form.preferences.autoRecordSessions}
                 onChange={(value) =>
                   updatePreference("autoRecordSessions", value)
                 }
-              />
+              /> */}
               <div className="flex flex-wrap items-center justify-between gap-3 py-3">
                 <div>
                   <div className="font-medium">Default editor theme</div>

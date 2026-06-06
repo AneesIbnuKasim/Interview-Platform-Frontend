@@ -53,7 +53,6 @@ export function AppShell({ children }) {
   const dispatch = useAppDispatch();
   const location = useLocation();
   const navigate = useNavigate();
-  const baseUrl = import.meta.env.VITE_API_URL
   const dashboardView =
     new URLSearchParams(location.search).get("view") || "overview";
   const unreadCount = notifications.filter((notification) => {
@@ -246,7 +245,7 @@ export function AppShell({ children }) {
               >
                 <Avatar
                   name={user?.name ?? "Guest"}
-                  src={`${baseUrl}user?.avatar?.url`}
+                  src={user?.avatar?.url}
                   size={28}
                 />
                 <span className="hidden text-sm md:inline">
