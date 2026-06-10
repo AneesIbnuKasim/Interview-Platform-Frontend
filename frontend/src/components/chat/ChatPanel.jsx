@@ -49,13 +49,14 @@ export function ChatPanel({ roomId }) {
     }
 
     const handleHistory = (payload) => {
+      if (payload?.roomId && payload.roomId !== roomId) return;
+
       dispatch(setMessages(payload.messages || []));
       dispatch(markRead());
     };
-    const handleMessage = (payload) => {
-      dispatch(receiveMessage(payload.message));
-    };
     const handleTyping = (payload) => {
+      if (payload?.roomId && payload.roomId !== roomId) return;
+
       const name = payload.user?.name;
       if (!name || payload.user?.userId === me?.id) return;
 
@@ -82,7 +83,6 @@ export function ChatPanel({ roomId }) {
     };
 
     socket.on(socketEvents.CHAT_HISTORY, handleHistory);
-    socket.on(socketEvents.CHAT_MESSAGE_CREATED, handleMessage);
     socket.on(socketEvents.CHAT_TYPING, handleTyping);
     socket.on(socketEvents.CHAT_ERROR, handleError);
 
@@ -95,7 +95,6 @@ export function ChatPanel({ roomId }) {
       }
 
       socket.off(socketEvents.CHAT_HISTORY, handleHistory);
-      socket.off(socketEvents.CHAT_MESSAGE_CREATED, handleMessage);
       socket.off(socketEvents.CHAT_TYPING, handleTyping);
       socket.off(socketEvents.CHAT_ERROR, handleError);
     };

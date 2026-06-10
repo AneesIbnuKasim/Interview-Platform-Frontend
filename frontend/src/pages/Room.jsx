@@ -336,8 +336,16 @@ export default function RoomPage() {
     };
 
     const handleMessage = (payload) => {
-      if (!ui.chatOpen) return;
+      const validRoomIds = new Set(
+        [roomId, room.current?.id, room.current?._id].filter(Boolean),
+      );
+      if (!payload?.message || !validRoomIds.has(payload.roomId)) return;
+
       dispatch(receiveMessage(payload.message));
+
+      if (!ui.chatOpen && payload.message.authorId !== me?.id) {
+        dispatch(incUnread());
+      }
     };
     const handleNotification = (payload) => {
       const notification = payload?.notification;
