@@ -84,6 +84,8 @@ export default function RoomPage() {
   const navigate = useNavigate();
   const room = useAppSelector((s) => s.room);
   const roomParticipants = useAppSelector((s) => s.room.current?.participants);
+  const currentRoomId = room.current?.id;
+  const currentRoomMongoId = room.current?._id;
   const ui = useAppSelector((s) => s.ui);
   const participants = useAppSelector((s) => s.participants.list);
   const chatUnread = useAppSelector((s) => s.chat.unread);
@@ -105,6 +107,8 @@ export default function RoomPage() {
   const leavingRef = useRef(false);
   const micRef = useRef(mic);
   const camRef = useRef(cam);
+  const chatOpenRef = useRef(ui.chatOpen);
+  const roomIdsRef = useRef(new Set());
   const isHost = Boolean(me?.id && room.current?.ownerId === me.id);
   const pendingRequests = (room.current?.participants || []).filter((item) => {
     return item.status === "pending";
@@ -115,6 +119,16 @@ export default function RoomPage() {
     micRef.current = mic;
     camRef.current = cam;
   }, [cam, mic]);
+
+  useEffect(() => {
+    chatOpenRef.current = ui.chatOpen;
+  }, [ui.chatOpen]);
+
+  useEffect(() => {
+    roomIdsRef.current = new Set(
+      [roomId, currentRoomId, currentRoomMongoId].filter(Boolean),
+    );
+  }, [currentRoomId, currentRoomMongoId, roomId]);
 
   useEffect(() => {
     if (roomId) {
@@ -336,14 +350,11 @@ export default function RoomPage() {
     };
 
     const handleMessage = (payload) => {
-      const validRoomIds = new Set(
-        [roomId, room.current?.id, room.current?._id].filter(Boolean),
-      );
-      if (!payload?.message || !validRoomIds.has(payload.roomId)) return;
+      if (!payload?.message || !roomIdsRef.current.has(payload.roomId)) return;
 
       dispatch(receiveMessage(payload.message));
 
-      if (!ui.chatOpen && payload.message.authorId !== me?.id) {
+      if (!chatOpenRef.current && payload.message.authorId !== me?.id) {
         dispatch(incUnread());
       }
     };
@@ -351,7 +362,7 @@ export default function RoomPage() {
       const notification = payload?.notification;
       if (!notification || notification.data?.authorId === me?.id) return;
       dispatch(receiveNotification(notification));
-      if (!ui.chatOpen) {
+      if (!chatOpenRef.current) {
         dispatch(incUnread());
       }
     };
@@ -476,7 +487,6 @@ export default function RoomPage() {
     room.current?.id,
     room.current?._id,
     roomId,
-    ui.chatOpen,
   ]);
 
   useEffect(() => {
