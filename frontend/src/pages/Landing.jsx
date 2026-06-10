@@ -62,7 +62,7 @@ export default function Landing() {
 
 function Hero() {
   return (
-    <section className="border-b border-border bg-background">
+    <section className="border-b border-border">
       <div className="mx-auto max-w-7xl px-6 py-20 md:py-28">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

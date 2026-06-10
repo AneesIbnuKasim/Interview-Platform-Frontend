@@ -113,7 +113,7 @@ export function AppShell({ children }) {
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen ">
       <aside
         className={cn(
           "hidden border-r border-border bg-card md:flex md:flex-col transition-all",

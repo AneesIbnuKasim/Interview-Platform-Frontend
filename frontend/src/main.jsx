@@ -5,7 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 
 import App from "./App";
 import { store } from "./store";
-import "./styles.css";
+import "../styles/global.css"
 
 const container = document.getElementById("root");
 if (!container) throw new Error("Root element #root not found");
