@@ -100,6 +100,18 @@ export default function PlaygroundPage() {
   const [pendingFileId, setPendingFileId] = useState(null);
   const latestCode = useRef(code);
 
+  const localCode = localStorage.getItem('localCode')
+  const localLanguage = localStorage.getItem('localLanguage')
+  useEffect(()=>{
+    if(localCode) {
+      setCode(localCode)
+      setLanguage(localLanguage)
+    }
+  }, [])
+  useEffect(()=>{
+    localStorage.setItem('localCode', code)
+    localStorage.setItem('localLanguage', language)
+  }, [code])
 
   useEffect(()=>{
     console.log('fullscreen:', fullscreen)
